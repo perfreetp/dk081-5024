@@ -6,6 +6,7 @@ import Circle from '@/pages/Circle';
 import Trade from '@/pages/Trade';
 import PostCreate from '@/pages/PostCreate';
 import Profile from '@/pages/Profile';
+import OrderDetail from '@/pages/OrderDetail';
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
             <Route path="/trade/:postId" element={<Trade />} />
             <Route path="/post" element={<PostCreate />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/order/:orderId" element={<OrderDetail />} />
           </Routes>
         </main>
         <BottomNav />

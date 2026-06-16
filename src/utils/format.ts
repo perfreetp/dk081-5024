@@ -42,6 +42,11 @@ export function formatDate(dateStr: string): string {
   return date.toLocaleDateString('zh-CN');
 }
 
+export function formatTime(dateStr: string): string {
+  const date = new Date(dateStr);
+  return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+}
+
 export function formatNumber(num: number): string {
   if (num >= 10000) return `${(num / 10000).toFixed(1)}w`;
   if (num >= 1000) return `${(num / 1000).toFixed(1)}k`;

@@ -199,6 +199,7 @@ export default function PostCreate() {
       assets: formData.assets,
       screenshots: formData.screenshots,
       useGuarantee: formData.useGuarantee,
+      acceptOffer: formData.acceptOffer,
       tags: formData.tags,
     });
 

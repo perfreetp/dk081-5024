@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
-import { useState } from 'react';
-import { Users, Flame, TrendingUp, MessageCircle, ShieldCheck, Crown, ChevronLeft, Gamepad2 } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Users, Flame, TrendingUp, MessageCircle, ShieldCheck, Crown, ChevronLeft, Gamepad2, Filter, GraduationCap, Shield, Tag } from 'lucide-react';
 import { Container } from '@/components/layout/Container';
 import { PostCard } from '@/components/trade/PostCard';
 import { CreditRank } from '@/components/circle/CreditRank';
@@ -14,13 +14,34 @@ export default function Circle() {
   const circles = useAppStore((s) => s.circles);
   const users = useAppStore((s) => s.users);
   const allPosts = useAppStore((s) => s.posts);
+  const currentUser = useAppStore((s) => s.currentUser);
 
   const [activeTab, setActiveTab] = useState<'deals' | 'members' | 'ranking'>('deals');
+  const [filterSchool, setFilterSchool] = useState(false);
+  const [filterGuarantee, setFilterGuarantee] = useState(false);
+  const [filterOffer, setFilterOffer] = useState(false);
 
   const currentGame = games.find((g) => g.id === gameId) || games[0];
   const currentCircle = circles.find((c) => c.gameId === gameId) || circles[0];
   const circlePosts = allPosts.filter((p) => p.gameId === gameId);
   const circleMembers = users.slice(0, 12);
+
+  const filteredPosts = useMemo(() => {
+    let result = [...circlePosts];
+    if (filterSchool) {
+      result = result.filter((p) => p.user.school === currentUser.school);
+    }
+    if (filterGuarantee) {
+      result = result.filter((p) => p.useGuarantee || p.status === 'trading');
+    }
+    if (filterOffer) {
+      result = result.filter((p) => p.acceptOffer);
+    }
+    return result;
+  }, [circlePosts, filterSchool, filterGuarantee, filterOffer, currentUser.school]);
+
+  const activeFiltersCount =
+    (filterSchool ? 1 : 0) + (filterGuarantee ? 1 : 0) + (filterOffer ? 1 : 0);
 
   return (
     <Container>
@@ -120,16 +141,69 @@ export default function Circle() {
                   <TrendingUp size={20} className="text-neon-purple" />
                   <h2 className="text-lg font-bold text-white">圈内最新交易</h2>
                 </div>
-                <span className="text-sm text-white/40">共 {circlePosts.length} 条</span>
+                <span className="text-sm text-white/40">
+                  {activeFiltersCount > 0 ? `筛选后 ${filteredPosts.length} 条` : `共 ${circlePosts.length} 条`}
+                </span>
               </div>
+
+              <div className="flex flex-wrap gap-2 mb-5">
+                <button
+                  onClick={() => setFilterSchool(!filterSchool)}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm transition-all ${
+                    filterSchool
+                      ? 'bg-neon-cyan/20 text-neon-cyan border border-neon-cyan/40'
+                      : 'bg-white/5 text-white/60 border border-white/10 hover:border-white/20'
+                  }`}
+                >
+                  <GraduationCap size={14} />
+                  只看同校
+                </button>
+                <button
+                  onClick={() => setFilterGuarantee(!filterGuarantee)}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm transition-all ${
+                    filterGuarantee
+                      ? 'bg-neon-purple/20 text-neon-purple border border-neon-purple/40'
+                      : 'bg-white/5 text-white/60 border border-white/10 hover:border-white/20'
+                  }`}
+                >
+                  <Shield size={14} />
+                  担保交易
+                </button>
+                <button
+                  onClick={() => setFilterOffer(!filterOffer)}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm transition-all ${
+                    filterOffer
+                      ? 'bg-neon-orange/20 text-neon-orange border border-neon-orange/40'
+                      : 'bg-white/5 text-white/60 border border-white/10 hover:border-white/20'
+                  }`}
+                >
+                  <Tag size={14} />
+                  可议价
+                </button>
+                {activeFiltersCount > 0 && (
+                  <button
+                    onClick={() => {
+                      setFilterSchool(false);
+                      setFilterGuarantee(false);
+                      setFilterOffer(false);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm text-white/40 hover:text-white/70 transition-colors"
+                  >
+                    清除筛选
+                  </button>
+                )}
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                {circlePosts.map((post) => (
+                {filteredPosts.map((post) => (
                   <PostCard key={post.id} post={post} />
                 ))}
               </div>
-              {circlePosts.length === 0 && (
+              {filteredPosts.length === 0 && (
                 <div className="glass-card p-10 text-center text-white/50">
-                  该圈子暂无交易帖
+                  <Filter size={40} className="mx-auto mb-3 opacity-30" />
+                  <p>没有符合条件的交易帖</p>
+                  {activeFiltersCount > 0 && <p className="text-xs mt-1">试试清除筛选条件</p>}
                 </div>
               )}
             </div>

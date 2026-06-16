@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   GraduationCap,
   CheckCircle2,
@@ -14,6 +15,10 @@ import {
   Trophy,
   TrendingUp,
   Zap,
+  MessageCircle,
+  XCircle,
+  Tag,
+  ArrowRight,
 } from 'lucide-react';
 import { Container } from '@/components/layout/Container';
 import { CreditBadge } from '@/components/user/CreditBadge';
@@ -29,12 +34,17 @@ export default function Profile() {
   const creditRecords = useAppStore((s) => s.creditRecords);
   const reviews = useAppStore((s) => s.getUserReviews(currentUser.id));
   const orders = useAppStore((s) => s.getUserOrders(currentUser.id));
+  const getUserOffers = useAppStore((s) => s.getUserOffers);
+  const acceptOffer = useAppStore((s) => s.acceptOffer);
+  const rejectOffer = useAppStore((s) => s.rejectOffer);
 
-  const [activeTab, setActiveTab] = useState<'published' | 'bought' | 'sold' | 'favorites' | 'reviews' | 'exposure'>('published');
+  const [activeTab, setActiveTab] = useState<'published' | 'bought' | 'sold' | 'offers' | 'favorites' | 'reviews' | 'exposure'>('published');
 
   const userPosts = posts.filter((p) => p.userId === currentUser.id);
   const boughtOrders = orders.filter((o) => o.buyerId === currentUser.id);
   const soldOrders = orders.filter((o) => o.sellerId === currentUser.id);
+  const receivedOffers = getUserOffers(currentUser.id, 'seller');
+  const pendingOffers = receivedOffers.filter((o) => o.status === 'pending');
 
   const creditProgress = getCreditProgress(currentUser.creditScore);
   const levelConfig = creditLevelConfig[currentUser.creditLevel];
@@ -48,10 +58,18 @@ export default function Profile() {
     cancelled: { label: '已取消', color: 'bg-white/10 text-white/50' },
   };
 
+  const offerStatusConfig = {
+    pending: { label: '待处理', color: 'bg-neon-orange/20 text-neon-orange' },
+    accepted: { label: '已同意', color: 'bg-green-500/20 text-green-400' },
+    rejected: { label: '已拒绝', color: 'bg-red-500/20 text-red-400' },
+    cancelled: { label: '已取消', color: 'bg-white/10 text-white/50' },
+  };
+
   const tabs = [
     { key: 'published', label: '我发布的', icon: Package, count: userPosts.length },
     { key: 'bought', label: '我买到的', icon: CreditCard, count: boughtOrders.length },
     { key: 'sold', label: '我卖出的', icon: TrendingUp, count: soldOrders.length },
+    { key: 'offers', label: '收到的报价', icon: Tag, count: pendingOffers.length },
     { key: 'favorites', label: '收藏夹', icon: Heart, count: 3 },
     { key: 'reviews', label: '晒号反馈', icon: Star, count: reviews.length },
     { key: 'exposure', label: '违规曝光', icon: AlertTriangle, count: 0 },
@@ -252,14 +270,20 @@ export default function Profile() {
               <div className="space-y-3">
                 {(activeTab === 'bought' ? boughtOrders : soldOrders).length > 0 ? (
                   (activeTab === 'bought' ? boughtOrders : soldOrders).map((order) => (
-                    <div key={order.id} className="glass-card p-4 flex items-center gap-4">
+                    <Link
+                      key={order.id}
+                      to={`/order/${order.id}`}
+                      className="glass-card p-4 flex items-center gap-4 hover:border-white/15 transition-all group"
+                    >
                       <img
                         src={order.postCover}
                         alt=""
                         className="w-20 h-20 rounded-xl object-cover shrink-0"
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-white truncate">{order.postTitle}</p>
+                        <p className="font-medium text-white truncate group-hover:text-neon-purple transition-colors">
+                          {order.postTitle}
+                        </p>
                         <p className="text-sm text-white/50 mt-1 flex items-center gap-2">
                           <Clock size={12} />
                           {formatDate(order.createdAt)}
@@ -270,13 +294,98 @@ export default function Profile() {
                         <span className={`tag-neon ${orderStatusConfig[order.status].color} text-xs mt-1`}>
                           {orderStatusConfig[order.status].label}
                         </span>
+                        <div className="flex items-center justify-end gap-1 mt-2 text-xs text-white/40 group-hover:text-white/60">
+                          查看进度
+                          <ArrowRight size={12} />
+                        </div>
                       </div>
-                    </div>
+                    </Link>
                   ))
                 ) : (
                   <div className="glass-card p-10 text-center text-white/50">
                     <CreditCard size={40} className="mx-auto mb-3 opacity-30" />
                     <p>暂无{activeTab === 'bought' ? '购买' : '出售'}记录</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'offers' && (
+              <div className="space-y-3">
+                {receivedOffers.length > 0 ? (
+                  receivedOffers.map((offer) => (
+                    <div key={offer.id} className="glass-card p-4">
+                      <div className="flex items-start gap-4 mb-3">
+                        <img
+                          src={offer.buyer.avatar}
+                          alt=""
+                          className="w-12 h-12 rounded-xl object-cover shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="font-medium text-white">{offer.buyer.nickname}</p>
+                            <span className={`tag-neon ${offerStatusConfig[offer.status].color} text-xs shrink-0`}>
+                              {offerStatusConfig[offer.status].label}
+                            </span>
+                          </div>
+                          <p className="text-sm text-white/50 mt-0.5 flex items-center gap-2">
+                            <Clock size={12} />
+                            {formatDate(offer.createdAt)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 mb-3">
+                        <div>
+                          <p className="text-xs text-white/50">买家出价</p>
+                          <p className="text-xl font-bold text-gradient">{formatPrice(offer.price)}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-white/50">你的报价</p>
+                          <p className="text-sm text-white/70">
+                            {posts.find((p) => p.id === offer.postId)
+                              ? formatPrice(posts.find((p) => p.id === offer.postId)!.price)
+                              : '-'}
+                          </p>
+                        </div>
+                      </div>
+                      {offer.message && (
+                        <div className="p-3 rounded-xl bg-neon-purple/5 border border-neon-purple/10 mb-3">
+                          <p className="text-sm text-white/70">
+                            <MessageCircle size={14} className="inline mr-1.5 text-neon-purple" />
+                            {offer.message}
+                          </p>
+                        </div>
+                      )}
+                      {offer.status === 'pending' && (
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => acceptOffer(offer.id)}
+                            className="btn-gradient flex-1 text-sm py-2 flex items-center justify-center gap-1"
+                          >
+                            <CheckCircle2 size={14} />
+                            同意议价
+                          </button>
+                          <button
+                            onClick={() => rejectOffer(offer.id)}
+                            className="btn-outline flex-1 text-sm py-2 flex items-center justify-center gap-1"
+                          >
+                            <XCircle size={14} />
+                            拒绝
+                          </button>
+                        </div>
+                      )}
+                      {offer.status !== 'pending' && offer.respondedAt && (
+                        <p className="text-xs text-white/40 text-center">
+                          {offer.status === 'accepted' ? '已同意' : '已拒绝'} · {formatDate(offer.respondedAt)}
+                        </p>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="glass-card p-10 text-center text-white/50">
+                    <Tag size={40} className="mx-auto mb-3 opacity-30" />
+                    <p>暂无收到的报价</p>
+                    <p className="text-xs mt-1">有人对你的账号感兴趣会来报价哦</p>
                   </div>
                 )}
               </div>

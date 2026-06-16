@@ -1,4 +1,4 @@
-import type { User, Game, Circle, Post, Mediator, PitfallCase, PriceReference, Review, QAComment, CreditRecord, TradeOrder, MediatorOrderRecord } from '@/types';
+import type { User, Game, Circle, Post, Mediator, PitfallCase, PriceReference, Review, QAComment, CreditRecord, TradeOrder, MediatorOrderRecord, Offer } from '@/types';
 
 export const mockUsers: User[] = [
   {
@@ -170,6 +170,7 @@ export const mockPosts: Post[] = [
       'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=honor%20of%20kings%20legendary%20skins%20collection%20glowing&image_size=landscape_16_9',
     ],
     useGuarantee: true,
+    acceptOffer: true,
     tags: ['可议价', '急出', '退游'],
     status: 'active',
     viewCount: 1256,
@@ -194,6 +195,7 @@ export const mockPosts: Post[] = [
       'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=league%20of%20legends%20champion%20skin%20collection%20gallery&image_size=landscape_16_9',
     ],
     useGuarantee: true,
+    acceptOffer: true,
     tags: ['同校优先', '走担保'],
     status: 'active',
     viewCount: 834,
@@ -220,6 +222,7 @@ export const mockPosts: Post[] = [
       'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=genshin%20impact%20spiral%20abyss%20full%20star%20clear%20rewards&image_size=landscape_16_9',
     ],
     useGuarantee: true,
+    acceptOffer: true,
     tags: ['高练度', '开服号', '可小刀'],
     status: 'active',
     viewCount: 2103,
@@ -244,6 +247,7 @@ export const mockPosts: Post[] = [
       'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=pubg%20mobile%20rare%20outfit%20mummy%20skin%20collection&image_size=landscape_16_9',
     ],
     useGuarantee: true,
+    acceptOffer: false,
     tags: ['豪车号', '特效枪'],
     status: 'active',
     viewCount: 967,
@@ -267,6 +271,7 @@ export const mockPosts: Post[] = [
       'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=honor%20of%20kings%20luna%20hero%20provincial%20rank%20showcase&image_size=landscape_16_9',
     ],
     useGuarantee: true,
+    acceptOffer: true,
     tags: ['省标', '可二次'],
     status: 'active',
     viewCount: 548,
@@ -290,6 +295,7 @@ export const mockPosts: Post[] = [
       'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=genshin%20impact%20raiden%20shogun%20character%20showcase&image_size=landscape_16_9',
     ],
     useGuarantee: false,
+    acceptOffer: true,
     tags: ['小号', '送邮箱', '新手号'],
     status: 'active',
     viewCount: 312,
@@ -427,14 +433,14 @@ export const mockPitfalls: PitfallCase[] = [
 ];
 
 export const mockPriceReferences: PriceReference[] = [
-  { gameId: 'g1', gameName: '王者荣耀', rank: '最强王者', minPrice: 500, maxPrice: 2000, avgPrice: 1200, trend: 'stable' },
-  { gameId: 'g1', gameName: '王者荣耀', rank: '无双王者', minPrice: 800, maxPrice: 3500, avgPrice: 1800, trend: 'up' },
-  { gameId: 'g1', gameName: '王者荣耀', rank: '荣耀王者', minPrice: 1500, maxPrice: 6000, avgPrice: 3200, trend: 'up' },
-  { gameId: 'g2', gameName: '英雄联盟', rank: '钻石', minPrice: 300, maxPrice: 1200, avgPrice: 700, trend: 'stable' },
-  { gameId: 'g2', gameName: '英雄联盟', rank: '大师', minPrice: 800, maxPrice: 2500, avgPrice: 1500, trend: 'up' },
-  { gameId: 'g3', gameName: '原神', rank: '冒险等级 45+', minPrice: 200, maxPrice: 800, avgPrice: 450, trend: 'down' },
-  { gameId: 'g3', gameName: '原神', rank: '冒险等级 55+', minPrice: 800, maxPrice: 3000, avgPrice: 1600, trend: 'stable' },
-  { gameId: 'g3', gameName: '原神', rank: '冒险等级 60', minPrice: 2000, maxPrice: 10000, avgPrice: 5000, trend: 'up' },
+  { gameId: 'g1', gameName: '王者荣耀', rank: '最强王者', minPrice: 500, maxPrice: 2000, avgPrice: 1200, trend: 'stable', sampleCount: 128 },
+  { gameId: 'g1', gameName: '王者荣耀', rank: '无双王者', minPrice: 800, maxPrice: 3500, avgPrice: 1800, trend: 'up', sampleCount: 86 },
+  { gameId: 'g1', gameName: '王者荣耀', rank: '荣耀王者', minPrice: 1500, maxPrice: 6000, avgPrice: 3200, trend: 'up', sampleCount: 42 },
+  { gameId: 'g2', gameName: '英雄联盟', rank: '钻石', minPrice: 300, maxPrice: 1200, avgPrice: 700, trend: 'stable', sampleCount: 95 },
+  { gameId: 'g2', gameName: '英雄联盟', rank: '大师', minPrice: 800, maxPrice: 2500, avgPrice: 1500, trend: 'up', sampleCount: 58 },
+  { gameId: 'g3', gameName: '原神', rank: '冒险等级 45+', minPrice: 200, maxPrice: 800, avgPrice: 450, trend: 'down', sampleCount: 156 },
+  { gameId: 'g3', gameName: '原神', rank: '冒险等级 55+', minPrice: 800, maxPrice: 3000, avgPrice: 1600, trend: 'stable', sampleCount: 92 },
+  { gameId: 'g3', gameName: '原神', rank: '冒险等级 60', minPrice: 2000, maxPrice: 10000, avgPrice: 5000, trend: 'up', sampleCount: 34 },
 ];
 
 export const mockReviews: Review[] = [
@@ -534,6 +540,16 @@ export const mockTradeOrders: TradeOrder[] = [
     createdAt: '2024-01-14T09:00:00Z',
     postTitle: '王者荣耀 V10 全英雄账号 186皮肤',
     postCover: mockPosts[0].screenshots[0],
+    currentStage: 'completed',
+    stages: [
+      { type: 'order_created', title: '下单成功', description: '买家已支付订单，等待中介介入', role: 'buyer', completedAt: '2024-01-14T09:00:00Z' },
+      { type: 'mediator_assigned', title: '中介已介入', description: '中介紫电已接单，正在联系卖家', role: 'mediator', completedAt: '2024-01-14T09:02:00Z', note: '响应时间 2 分钟' },
+      { type: 'seller_preparing', title: '卖家交接中', description: '卖家正在准备账号资料并提交给中介', role: 'seller', completedAt: '2024-01-14T09:10:00Z' },
+      { type: 'account_verified', title: '账号验证完成', description: '中介已验证账号信息，与描述一致', role: 'mediator', completedAt: '2024-01-14T09:20:00Z', note: '账号密保、实名、资产已核验' },
+      { type: 'buyer_confirmed', title: '买家确认收货', description: '买家确认账号无误，同意放款', role: 'buyer', completedAt: '2024-01-14T09:25:00Z' },
+      { type: 'fund_released', title: '已放款给卖家', description: '平台已将款项打给卖家', role: 'system', completedAt: '2024-01-14T09:25:30Z' },
+      { type: 'completed', title: '交易完成', description: '交易已结束，欢迎对本次服务进行评价', role: 'system', completedAt: '2024-01-14T09:26:00Z' },
+    ],
   },
   {
     id: 't2',
@@ -546,6 +562,16 @@ export const mockTradeOrders: TradeOrder[] = [
     createdAt: '2024-01-12T10:00:00Z',
     postTitle: 'LOL 艾欧尼亚 钻石1 120英雄',
     postCover: mockPosts[1].screenshots[0],
+    currentStage: 'completed',
+    stages: [
+      { type: 'order_created', title: '下单成功', description: '买家已支付订单，等待中介介入', role: 'buyer', completedAt: '2024-01-12T10:00:00Z' },
+      { type: 'mediator_assigned', title: '中介已介入', description: '中介红颜已接单，正在联系卖家', role: 'mediator', completedAt: '2024-01-12T10:01:30Z' },
+      { type: 'seller_preparing', title: '卖家交接中', description: '卖家正在准备账号资料并提交给中介', role: 'seller', completedAt: '2024-01-12T10:08:00Z' },
+      { type: 'account_verified', title: '账号验证完成', description: '中介已验证账号信息，与描述一致', role: 'mediator', completedAt: '2024-01-12T10:15:00Z' },
+      { type: 'buyer_confirmed', title: '买家确认收货', description: '买家确认账号无误，同意放款', role: 'buyer', completedAt: '2024-01-12T10:20:00Z' },
+      { type: 'fund_released', title: '已放款给卖家', description: '平台已将款项打给卖家', role: 'system', completedAt: '2024-01-12T10:20:30Z' },
+      { type: 'completed', title: '交易完成', description: '交易已结束，欢迎对本次服务进行评价', role: 'system', completedAt: '2024-01-12T10:21:00Z' },
+    ],
   },
   {
     id: 't3',
@@ -558,5 +584,56 @@ export const mockTradeOrders: TradeOrder[] = [
     createdAt: '2024-01-15T08:00:00Z',
     postTitle: '原神 60级 满命胡桃 三神 58黄',
     postCover: mockPosts[2].screenshots[0],
+    currentStage: 'seller_preparing',
+    stages: [
+      { type: 'order_created', title: '下单成功', description: '买家已支付订单，等待中介介入', role: 'buyer', completedAt: '2024-01-15T08:00:00Z' },
+      { type: 'mediator_assigned', title: '中介已介入', description: '中介红颜已接单，正在联系卖家', role: 'mediator', completedAt: '2024-01-15T08:03:00Z' },
+      { type: 'seller_preparing', title: '卖家交接中', description: '卖家正在准备账号资料并提交给中介', role: 'seller' },
+      { type: 'account_verified', title: '账号验证完成', description: '中介验证账号信息，与描述一致', role: 'mediator' },
+      { type: 'buyer_confirmed', title: '买家确认收货', description: '买家确认账号无误后同意放款', role: 'buyer' },
+      { type: 'fund_released', title: '放款给卖家', description: '平台将款项打给卖家', role: 'system' },
+      { type: 'completed', title: '交易完成', description: '交易结束，欢迎评价', role: 'system' },
+    ],
+  },
+];
+
+export const mockOffers: Offer[] = [
+  {
+    id: 'o1',
+    postId: 'p1',
+    buyerId: 'u3',
+    sellerId: 'u1',
+    price: 3500,
+    message: '真心想要，3500能出吗？同校的，可以面交。',
+    status: 'pending',
+    createdAt: '2024-01-15T12:30:00Z',
+    buyer: mockUsers[2],
+    seller: mockUsers[0],
+  },
+  {
+    id: 'o2',
+    postId: 'p1',
+    buyerId: 'u4',
+    sellerId: 'u1',
+    price: 3200,
+    message: '预算有限，3200行不行？秒拍。',
+    status: 'rejected',
+    createdAt: '2024-01-15T10:00:00Z',
+    respondedAt: '2024-01-15T10:15:00Z',
+    buyer: mockUsers[3],
+    seller: mockUsers[0],
+  },
+  {
+    id: 'o3',
+    postId: 'p2',
+    buyerId: 'u1',
+    sellerId: 'u2',
+    price: 1000,
+    message: '钻石1的号，1000差不多了，我也是同校的。',
+    status: 'accepted',
+    createdAt: '2024-01-14T18:00:00Z',
+    respondedAt: '2024-01-14T19:30:00Z',
+    buyer: mockUsers[0],
+    seller: mockUsers[1],
   },
 ];

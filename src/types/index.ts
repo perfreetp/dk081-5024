@@ -48,6 +48,7 @@ export interface Post {
   assets: string[];
   screenshots: string[];
   useGuarantee: boolean;
+  acceptOffer: boolean;
   tags: string[];
   status: PostStatus;
   viewCount: number;
@@ -86,6 +87,41 @@ export interface MediatorOrderRecord {
   createdAt: string;
 }
 
+export type OfferStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled';
+
+export interface Offer {
+  id: string;
+  postId: string;
+  buyerId: string;
+  sellerId: string;
+  price: number;
+  message: string;
+  status: OfferStatus;
+  createdAt: string;
+  respondedAt?: string;
+  buyer: User;
+  seller: User;
+}
+
+export type OrderStageType =
+  | 'order_created'
+  | 'mediator_assigned'
+  | 'seller_preparing'
+  | 'account_verified'
+  | 'buyer_confirmed'
+  | 'fund_released'
+  | 'completed'
+  | 'disputed';
+
+export interface OrderStage {
+  type: OrderStageType;
+  title: string;
+  description: string;
+  role: 'buyer' | 'seller' | 'mediator' | 'system';
+  completedAt?: string;
+  note?: string;
+}
+
 export type OrderStatus = 'pending' | 'paid' | 'delivering' | 'completed' | 'disputed' | 'cancelled';
 
 export interface TradeOrder {
@@ -99,6 +135,8 @@ export interface TradeOrder {
   createdAt: string;
   postTitle: string;
   postCover: string;
+  stages: OrderStage[];
+  currentStage: OrderStageType;
 }
 
 export interface QAComment {
@@ -146,6 +184,7 @@ export interface PriceReference {
   maxPrice: number;
   avgPrice: number;
   trend: 'up' | 'down' | 'stable';
+  sampleCount: number;
 }
 
 export interface CreditRecord {

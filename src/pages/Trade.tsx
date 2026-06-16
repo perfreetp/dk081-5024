@@ -19,6 +19,14 @@ import {
   Zap,
   User,
   Package,
+  Tag,
+  Settings,
+  XCircle,
+  ArrowRight,
+  Send,
+  TrendingUp,
+  TrendingDown,
+  Inbox,
 } from 'lucide-react';
 import { Container } from '@/components/layout/Container';
 import { UserAvatar } from '@/components/user/UserAvatar';
@@ -43,11 +51,18 @@ export default function Trade() {
   const currentUser = useAppStore((s) => s.currentUser);
   const createTradeOrder = useAppStore((s) => s.createTradeOrder);
   const getMediatorRecords = useAppStore((s) => s.getMediatorRecords);
+  const getPriceReference = useAppStore((s) => s.getPriceReference);
+  const createOffer = useAppStore((s) => s.createOffer);
+  const getPostOffers = useAppStore((s) => s.getPostOffers);
+  const closePost = useAppStore((s) => s.closePost);
 
   const post = posts.find((p) => p.id === postId) || posts[0];
   const gamePriceRefs = priceRefs.filter((r) => r.gameId === post?.gameId);
   const onlineMediators = mediators.filter((m) => m.isOnline);
   const offlineMediators = mediators.filter((m) => !m.isOnline);
+  const isSeller = post?.userId === currentUser.id;
+  const postOffers = getPostOffers(post?.id || '');
+  const pendingOffers = postOffers.filter((o) => o.status === 'pending');
 
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [selectedMediator, setSelectedMediator] = useState<string | null>(mediators[0]?.id || null);
@@ -55,11 +70,15 @@ export default function Trade() {
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [showMediatorRecords, setShowMediatorRecords] = useState<Mediator | null>(null);
   const [orderSuccess, setOrderSuccess] = useState<{ orderId: string } | null>(null);
+  const [showOfferModal, setShowOfferModal] = useState(false);
+  const [offerPrice, setOfferPrice] = useState('');
+  const [offerMessage, setOfferMessage] = useState('');
 
   if (!post) return null;
 
   const similarPosts = posts.filter((p) => p.gameId === post.gameId && p.id !== post.id).slice(0, 3);
   const selectedMediatorData = mediators.find((m) => m.id === selectedMediator);
+  const priceRef = getPriceReference(post.gameId, post.rank);
 
   const handleConfirmPay = () => {
     if (!selectedMediator || !post) return;
@@ -76,6 +95,31 @@ export default function Trade() {
 
     setShowOrderModal(false);
     setOrderSuccess({ orderId: order.id });
+  };
+
+  const handleSubmitOffer = () => {
+    if (!post || !offerPrice || Number(offerPrice) <= 0) return;
+
+    createOffer({
+      postId: post.id,
+      buyerId: currentUser.id,
+      sellerId: post.user.id,
+      price: Number(offerPrice),
+      message: offerMessage || '',
+    });
+
+    setShowOfferModal(false);
+    setOfferPrice('');
+    setOfferMessage('');
+    alert('报价已发送，请等待卖家回复！');
+  };
+
+  const handleClosePost = () => {
+    if (confirm('确定要下架这个帖子吗？下架后将不再展示。')) {
+      closePost(post.id);
+      alert('帖子已下架');
+      navigate('/');
+    }
   };
 
   const handleViewMediatorRecords = (mediator: Mediator) => {
@@ -130,6 +174,11 @@ export default function Trade() {
                 {post.status === 'sold' && (
                   <span className="tag-neon bg-gray-500/90 text-white backdrop-blur-sm">
                     已售出
+                  </span>
+                )}
+                {post.status === 'closed' && (
+                  <span className="tag-neon bg-gray-500/90 text-white backdrop-blur-sm">
+                    已下架
                   </span>
                 )}
               </div>
@@ -195,10 +244,13 @@ export default function Trade() {
               </div>
               <div className="text-right shrink-0">
                 <div className="text-3xl font-bold text-gradient">{formatPrice(post.price)}</div>
-                {gamePriceRefs[0] && (
+                {priceRef && (
                   <p className="text-xs text-white/50 mt-1">
-                    参考价 {formatPrice(gamePriceRefs[0].minPrice)} - {formatPrice(gamePriceRefs[0].maxPrice)}
+                    参考价 {formatPrice(priceRef.minPrice)} - {formatPrice(priceRef.maxPrice)}
                   </p>
+                )}
+                {!priceRef && (
+                  <p className="text-xs text-white/30 mt-1">暂无市场参考数据</p>
                 )}
               </div>
             </div>
@@ -241,7 +293,7 @@ export default function Trade() {
         <div className="space-y-6">
           <div className="glass-card p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-white">卖家信息</h3>
+              <h3 className="font-semibold text-white">{isSeller ? '您是卖家' : '卖家信息'}</h3>
               {post.user.isStudentVerified && (
                 <span className="tag-neon bg-neon-cyan/20 text-neon-cyan text-xs">
                   <GraduationCap size={12} className="mr-1" />
@@ -286,19 +338,34 @@ export default function Trade() {
               </div>
               <Info size={16} className="text-white/40" />
             </div>
-            <PriceRange references={gamePriceRefs.slice(0, 2)} currentPrice={post.price} />
+            {gamePriceRefs.length > 0 ? (
+              <>
+                <PriceRange references={gamePriceRefs.slice(0, 2)} currentPrice={post.price} />
+                {priceRef && (
+                  <div className="mt-2 text-xs text-white/40">
+                    数据来源：近期 {priceRef.sampleCount} 笔成交记录
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="py-6 text-center text-white/40">
+                <TrendingUp size={28} className="mx-auto mb-2 opacity-30" />
+                <p className="text-sm">暂无该游戏的价格参考数据</p>
+                <p className="text-xs mt-1">建议多参考同类型账号谨慎定价</p>
+              </div>
+            )}
 
-            {post.price < (gamePriceRefs[0]?.avgPrice || 0) && (
+            {priceRef && post.price < priceRef.avgPrice && (
               <div className="mt-4 p-3 rounded-xl bg-green-500/10 border border-green-500/20">
                 <div className="flex items-start gap-2">
                   <Zap size={16} className="text-green-400 shrink-0 mt-0.5" />
                   <p className="text-sm text-green-400">
-                    价格低于市场价约 {Math.round(((gamePriceRefs[0].avgPrice - post.price) / gamePriceRefs[0].avgPrice) * 100)}%，性价比不错！
+                    价格低于市场价约 {Math.round(((priceRef.avgPrice - post.price) / priceRef.avgPrice) * 100)}%，性价比不错！
                   </p>
                 </div>
               </div>
             )}
-            {post.price > (gamePriceRefs[0]?.avgPrice || 0) && (
+            {priceRef && post.price > priceRef.avgPrice && (
               <div className="mt-4 p-3 rounded-xl bg-neon-orange/10 border border-neon-orange/20">
                 <div className="flex items-start gap-2">
                   <AlertTriangle size={16} className="text-neon-orange shrink-0 mt-0.5" />
@@ -310,97 +377,169 @@ export default function Trade() {
             )}
           </div>
 
-          <div className="glass-card p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Shield size={18} className="text-neon-purple" />
-                <h3 className="font-semibold text-white">选择担保中介</h3>
+          {!isSeller && (
+            <div className="glass-card p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Shield size={18} className="text-neon-purple" />
+                  <h3 className="font-semibold text-white">选择担保中介</h3>
+                </div>
+                <span className="text-xs text-white/40">在线 {onlineMediators.length} 人</span>
               </div>
-              <span className="text-xs text-white/40">在线 {onlineMediators.length} 人</span>
+              <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+                {onlineMediators.map((mediator) => (
+                  <MediatorCard
+                    key={mediator.id}
+                    mediator={mediator}
+                    selected={selectedMediator === mediator.id}
+                    onClick={() => setSelectedMediator(mediator.id)}
+                    onViewRecords={() => handleViewMediatorRecords(mediator)}
+                  />
+                ))}
+                {offlineMediators.map((mediator) => (
+                  <MediatorCard
+                    key={mediator.id}
+                    mediator={mediator}
+                    selected={selectedMediator === mediator.id}
+                    onClick={() => setSelectedMediator(mediator.id)}
+                    onViewRecords={() => handleViewMediatorRecords(mediator)}
+                  />
+                ))}
+              </div>
             </div>
-            <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
-              {onlineMediators.map((mediator) => (
-                <MediatorCard
-                  key={mediator.id}
-                  mediator={mediator}
-                  selected={selectedMediator === mediator.id}
-                  onClick={() => setSelectedMediator(mediator.id)}
-                  onViewRecords={() => handleViewMediatorRecords(mediator)}
-                />
-              ))}
-              {offlineMediators.map((mediator) => (
-                <MediatorCard
-                  key={mediator.id}
-                  mediator={mediator}
-                  selected={selectedMediator === mediator.id}
-                  onClick={() => setSelectedMediator(mediator.id)}
-                  onViewRecords={() => handleViewMediatorRecords(mediator)}
-                />
-              ))}
-            </div>
-          </div>
+          )}
 
           <div className="glass-card p-6 sticky top-24">
-            <div className="flex items-end justify-between mb-5">
-              <div>
-                <p className="text-sm text-white/50 mb-1">交易总价</p>
-                <div className="text-3xl font-bold text-gradient">{formatPrice(post.price)}</div>
-              </div>
-              {selectedMediator && (
-                <div className="text-right text-xs text-white/50">
-                  中介费：{formatPrice(Math.round(post.price * 0.03))}
-                  <br />
-                  <span className="text-white/30">（约3%）</span>
+            {isSeller ? (
+              <>
+                <div className="flex items-center gap-2 mb-4">
+                  <Settings size={18} className="text-neon-purple" />
+                  <h3 className="font-semibold text-white">卖家管理</h3>
                 </div>
-              )}
-            </div>
 
-            {selectedMediatorData && (
-              <div className="mb-4 p-3 rounded-xl bg-neon-purple/10 border border-neon-purple/20">
-                <p className="text-xs text-white/50 mb-1">已选中中介</p>
-                <div className="flex items-center gap-2">
-                  <img
-                    src={selectedMediatorData.avatar}
-                    alt=""
-                    className="w-8 h-8 rounded-lg object-cover"
-                  />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-white">{selectedMediatorData.nickname}</p>
-                    <p className="text-xs text-white/50">
-                      {selectedMediatorData.responseTime}响应 · 调解率 {selectedMediatorData.disputeResolutionRate}%
-                    </p>
+                <div className="space-y-3 mb-5">
+                  <button
+                    onClick={() => navigate('/profile')}
+                    className="w-full p-3 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-between text-white transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Inbox size={18} className="text-neon-cyan" />
+                      <span className="text-sm">查看报价</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {pendingOffers.length > 0 && (
+                        <span className="px-2 py-0.5 rounded-full bg-neon-pink/20 text-neon-pink text-xs">
+                          {pendingOffers.length} 条新
+                        </span>
+                      )}
+                      <ArrowRight size={14} className="text-white/40" />
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={handleClosePost}
+                    disabled={post.status === 'closed' || post.status === 'trading' || post.status === 'sold'}
+                    className="w-full p-3 rounded-xl bg-red-500/5 hover:bg-red-500/10 border border-red-500/20 flex items-center gap-3 text-red-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <XCircle size={18} />
+                    <span className="text-sm">
+                      {post.status === 'closed'
+                        ? '已下架'
+                        : post.status === 'trading'
+                        ? '交易中，无法下架'
+                        : post.status === 'sold'
+                        ? '已售出'
+                        : '下架帖子'}
+                    </span>
+                  </button>
+                </div>
+
+                <div className="p-3 rounded-xl bg-neon-purple/10 border border-neon-purple/20">
+                  <p className="text-xs text-white/70">
+                    💡 提示：有 {pendingOffers.length} 条待处理报价，合理议价可以加快成交哦
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-end justify-between mb-5">
+                  <div>
+                    <p className="text-sm text-white/50 mb-1">交易总价</p>
+                    <div className="text-3xl font-bold text-gradient">{formatPrice(post.price)}</div>
+                  </div>
+                  {selectedMediator && (
+                    <div className="text-right text-xs text-white/50">
+                      中介费：{formatPrice(Math.round(post.price * 0.03))}
+                      <br />
+                      <span className="text-white/30">（约3%）</span>
+                    </div>
+                  )}
+                </div>
+
+                {selectedMediatorData && (
+                  <div className="mb-4 p-3 rounded-xl bg-neon-purple/10 border border-neon-purple/20">
+                    <p className="text-xs text-white/50 mb-1">已选中中介</p>
+                    <div className="flex items-center gap-2">
+                      <img
+                        src={selectedMediatorData.avatar}
+                        alt=""
+                        className="w-8 h-8 rounded-lg object-cover"
+                      />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-white">{selectedMediatorData.nickname}</p>
+                        <p className="text-xs text-white/50">
+                          {selectedMediatorData.responseTime}响应 · 调解率 {selectedMediatorData.disputeResolutionRate}%
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-2 mb-5 text-sm text-white/60">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 size={14} className="text-green-400" />
+                    <span>资金由平台托管，确认收货后放款</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 size={14} className="text-green-400" />
+                    <span>中介协助验证账号信息</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 size={14} className="text-green-400" />
+                    <span>交易纠纷全程介入处理</span>
                   </div>
                 </div>
-              </div>
+
+                <button
+                  onClick={() => setShowOrderModal(true)}
+                  disabled={!selectedMediator || post.status === 'trading' || post.status === 'sold' || post.status === 'closed'}
+                  className="btn-gradient w-full disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  <Shield size={18} />
+                  {post.status === 'trading'
+                    ? '交易进行中'
+                    : post.status === 'sold'
+                    ? '已售出'
+                    : post.status === 'closed'
+                    ? '已下架'
+                    : '发起担保交易'}
+                </button>
+
+                <button
+                  onClick={() => setShowOfferModal(true)}
+                  disabled={post.status !== 'active'}
+                  className="btn-outline w-full mt-3 flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  <Tag size={16} />
+                  我要议价
+                </button>
+
+                <button className="btn-outline w-full mt-3 flex items-center justify-center gap-2">
+                  <MessageCircle size={18} />
+                  联系卖家
+                </button>
+              </>
             )}
-
-            <div className="space-y-2 mb-5 text-sm text-white/60">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 size={14} className="text-green-400" />
-                <span>资金由平台托管，确认收货后放款</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 size={14} className="text-green-400" />
-                <span>中介协助验证账号信息</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 size={14} className="text-green-400" />
-                <span>交易纠纷全程介入处理</span>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setShowOrderModal(true)}
-              disabled={!selectedMediator || post.status === 'trading' || post.status === 'sold'}
-              className="btn-gradient w-full disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              <Shield size={18} />
-              {post.status === 'trading' ? '交易进行中' : post.status === 'sold' ? '已售出' : '发起担保交易'}
-            </button>
-            <button className="btn-outline w-full mt-3 flex items-center justify-center gap-2">
-              <MessageCircle size={18} />
-              联系卖家
-            </button>
           </div>
         </div>
       </div>
@@ -487,6 +626,82 @@ export default function Trade() {
                 className="btn-gradient flex-1"
               >
                 确认支付
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showOfferModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dark-900/80 backdrop-blur-sm">
+          <div className="glass-card p-8 w-full max-w-md">
+            <h3 className="text-xl font-bold text-white mb-2">发起议价</h3>
+            <p className="text-sm text-white/60 mb-6">
+              报价后卖家可选择同意或拒绝，同意后可直接按议价下单
+            </p>
+
+            <div className="space-y-4 mb-6">
+              <div className="flex gap-3 p-4 rounded-xl bg-white/5">
+                <img src={post.screenshots[0]} alt="" className="w-14 h-14 rounded-lg object-cover" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-white text-sm truncate">{truncateText(post.title, 30)}</p>
+                  <p className="text-xs text-white/50 mt-1">
+                    卖家报价：<span className="text-neon-purple font-medium">{formatPrice(post.price)}</span>
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm text-white/70 mb-2">我的出价</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neon-purple font-bold">¥</span>
+                  <input
+                    type="number"
+                    value={offerPrice}
+                    onChange={(e) => setOfferPrice(e.target.value)}
+                    placeholder="请输入您的出价"
+                    className="input-field pl-9 text-lg"
+                  />
+                </div>
+                {priceRef && (
+                  <p className="text-xs text-white/40 mt-2">
+                    市场参考价 {formatPrice(priceRef.minPrice)} - {formatPrice(priceRef.maxPrice)}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm text-white/70 mb-2">留言（可选）</label>
+                <textarea
+                  value={offerMessage}
+                  onChange={(e) => setOfferMessage(e.target.value)}
+                  placeholder="想说的话，比如：真心想要，同校可面交..."
+                  rows={3}
+                  maxLength={100}
+                  className="input-field resize-none"
+                />
+                <p className="text-xs text-white/40 mt-1 text-right">{offerMessage.length}/100</p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowOfferModal(false);
+                  setOfferPrice('');
+                  setOfferMessage('');
+                }}
+                className="btn-outline flex-1"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleSubmitOffer}
+                disabled={!offerPrice || Number(offerPrice) <= 0}
+                className="btn-gradient flex-1 disabled:opacity-50"
+              >
+                <Send size={16} className="mr-1" />
+                发送报价
               </button>
             </div>
           </div>
