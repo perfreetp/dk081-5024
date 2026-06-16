@@ -55,6 +55,7 @@ export default function OrderDetail() {
   const navigate = useNavigate();
   const { orderId = '' } = useParams();
   const getOrderById = useAppStore((s) => s.getOrderById);
+  const advanceOrderStage = useAppStore((s) => s.advanceOrderStage);
   const mediators = useAppStore((s) => s.mediators);
   const users = useAppStore((s) => s.users);
   const posts = useAppStore((s) => s.posts);
@@ -103,6 +104,14 @@ export default function OrderDetail() {
     navigator.clipboard?.writeText(order.id);
     alert('订单号已复制');
   };
+
+  const handleAdvanceStage = (note?: string) => {
+    if (!order) return;
+    advanceOrderStage(order.id, note);
+  };
+
+  const canSellerSubmit = isSeller && order.status === 'delivering' && order.currentStage === 'mediator_assigned';
+  const canBuyerConfirm = isBuyer && order.status === 'delivering' && order.currentStage === 'account_verified';
 
   return (
     <Container>
@@ -339,21 +348,70 @@ export default function OrderDetail() {
 
         {order.status !== 'completed' && order.status !== 'cancelled' && (
           <div className="glass-card p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Shield size={18} className="text-neon-cyan" />
+              <h3 className="font-semibold text-white">当前操作</h3>
+            </div>
+
+            {order.currentStage === 'order_created' && (
+              <div className="p-3 rounded-xl bg-white/5 mb-4">
+                <p className="text-sm text-white/60">
+                  订单已创建，等待中介接单介入...
+                </p>
+              </div>
+            )}
+            {order.currentStage === 'mediator_assigned' && isSeller && (
+              <div className="p-3 rounded-xl bg-neon-orange/10 border border-neon-orange/20 mb-4">
+                <p className="text-sm text-white/80">
+                  📦 中介已介入，请尽快准备账号资料并提交给中介
+                </p>
+              </div>
+            )}
+            {order.currentStage === 'seller_preparing' && isBuyer && (
+              <div className="p-3 rounded-xl bg-neon-cyan/10 border border-neon-cyan/20 mb-4">
+                <p className="text-sm text-white/80">
+                  ⏳ 卖家正在交接账号，中介验证完成后会通知您
+                </p>
+              </div>
+            )}
+            {order.currentStage === 'account_verified' && isBuyer && (
+              <div className="p-3 rounded-xl bg-neon-purple/10 border border-neon-purple/20 mb-4">
+                <p className="text-sm text-white/80">
+                  ✅ 中介已验证账号信息，请确认收货后完成交易
+                </p>
+              </div>
+            )}
+            {order.currentStage === 'buyer_confirmed' && (
+              <div className="p-3 rounded-xl bg-green-500/10 border border-green-500/20 mb-4">
+                <p className="text-sm text-white/80">
+                  💰 买家已确认收货，平台正在处理放款...
+                </p>
+              </div>
+            )}
+
             <div className="flex gap-3">
               <button className="btn-outline flex-1 flex items-center justify-center gap-2">
                 <MessageCircle size={16} />
                 联系中介
               </button>
-              {isBuyer && order.status === 'delivering' && currentStageIndex >= 3 && (
-                <button className="btn-gradient flex-1 flex items-center justify-center gap-2">
-                  <CheckCircle2 size={16} />
-                  确认收货
-                </button>
-              )}
-              {isSeller && order.status === 'delivering' && currentStageIndex === 2 && (
-                <button className="btn-gradient flex-1 flex items-center justify-center gap-2">
+
+              {canSellerSubmit && (
+                <button
+                  onClick={() => handleAdvanceStage('卖家已提交账号资料，包含账号密码和绑定信息')}
+                  className="btn-gradient flex-1 flex items-center justify-center gap-2"
+                >
                   <Package size={16} />
                   提交账号信息
+                </button>
+              )}
+
+              {canBuyerConfirm && (
+                <button
+                  onClick={() => handleAdvanceStage('买家确认账号无误，同意放款')}
+                  className="btn-gradient flex-1 flex items-center justify-center gap-2"
+                >
+                  <CheckCircle2 size={16} />
+                  确认收货
                 </button>
               )}
             </div>

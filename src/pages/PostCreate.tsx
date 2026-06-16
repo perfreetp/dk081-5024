@@ -65,9 +65,16 @@ export default function PostCreate() {
 
   const priceCheck = useMemo(() => {
     const priceNum = Number(formData.price);
-    if (!priceNum || !formData.gameId || !formData.rank) return null;
+    if (!formData.gameId || !formData.rank) {
+      return { level: 'empty' as const, tip: '请先选择游戏和段位以获取价格参考', ref: null };
+    }
     const ref = getPriceReference(formData.gameId, formData.rank);
-    if (!ref) return null;
+    if (!ref) {
+      return { level: 'no_data' as const, tip: '暂无该游戏对应段位的价格参考数据，建议参考同类型账号谨慎定价', ref: null };
+    }
+    if (!priceNum || priceNum <= 0) {
+      return { level: 'waiting' as const, tip: '请填写价格以获取智能定价建议', ref };
+    }
     const midPrice = ref.avgPrice;
     const highThreshold = midPrice * 1.4;
     const lowThreshold = midPrice * 0.6;
@@ -410,6 +417,12 @@ export default function PostCreate() {
                       </span>
                     </div>
                   )}
+                  {priceCheck?.level === 'no_data' && (
+                    <div className="mt-2 flex items-center gap-2 text-xs text-white/40">
+                      <AlertTriangle size={12} className="text-white/30" />
+                      <span>暂无该段位的价格参考数据</span>
+                    </div>
+                  )}
                   {priceCheck && (
                     <div
                       className={`mt-3 p-3 rounded-xl border flex items-start gap-2 text-sm ${
@@ -417,7 +430,9 @@ export default function PostCreate() {
                           ? 'bg-green-500/10 border-green-500/20'
                           : priceCheck.level === 'high'
                           ? 'bg-neon-orange/10 border-neon-orange/30'
-                          : 'bg-red-500/10 border-red-500/30'
+                          : priceCheck.level === 'low'
+                          ? 'bg-red-500/10 border-red-500/30'
+                          : 'bg-white/5 border-white/10'
                       }`}
                     >
                       {priceCheck.level === 'normal' && (
@@ -429,13 +444,18 @@ export default function PostCreate() {
                       {priceCheck.level === 'low' && (
                         <AlertTriangle size={16} className="text-red-400 shrink-0 mt-0.5" />
                       )}
+                      {(priceCheck.level === 'empty' || priceCheck.level === 'waiting' || priceCheck.level === 'no_data') && (
+                        <Info size={16} className="text-white/40 shrink-0 mt-0.5" />
+                      )}
                       <p
                         className={
                           priceCheck.level === 'normal'
                             ? 'text-green-400/90'
                             : priceCheck.level === 'high'
                             ? 'text-neon-orange'
-                            : 'text-red-400'
+                            : priceCheck.level === 'low'
+                            ? 'text-red-400'
+                            : 'text-white/50'
                         }
                       >
                         {priceCheck.tip}

@@ -137,6 +137,7 @@ export interface TradeOrder {
   postCover: string;
   stages: OrderStage[];
   currentStage: OrderStageType;
+  offerId?: string;
 }
 
 export interface QAComment {

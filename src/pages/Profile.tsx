@@ -38,13 +38,24 @@ export default function Profile() {
   const acceptOffer = useAppStore((s) => s.acceptOffer);
   const rejectOffer = useAppStore((s) => s.rejectOffer);
 
-  const [activeTab, setActiveTab] = useState<'published' | 'bought' | 'sold' | 'offers' | 'favorites' | 'reviews' | 'exposure'>('published');
+  const [activeTab, setActiveTab] = useState<'published' | 'bought' | 'sold' | 'offers' | 'offers-sent' | 'favorites' | 'reviews' | 'exposure'>('published');
+  const [offerFilter, setOfferFilter] = useState<'all' | 'pending' | 'accepted' | 'rejected'>('all');
 
   const userPosts = posts.filter((p) => p.userId === currentUser.id);
   const boughtOrders = orders.filter((o) => o.buyerId === currentUser.id);
   const soldOrders = orders.filter((o) => o.sellerId === currentUser.id);
   const receivedOffers = getUserOffers(currentUser.id, 'seller');
+  const sentOffers = getUserOffers(currentUser.id, 'buyer');
   const pendingOffers = receivedOffers.filter((o) => o.status === 'pending');
+
+  const getFilteredOffers = (list: typeof receivedOffers) => {
+    if (offerFilter === 'all') return list;
+    return list.filter((o) => o.status === offerFilter);
+  };
+
+  const getOfferOrder = (offerId: string) => {
+    return orders.find((o) => o.offerId === offerId);
+  };
 
   const creditProgress = getCreditProgress(currentUser.creditScore);
   const levelConfig = creditLevelConfig[currentUser.creditLevel];
@@ -70,6 +81,7 @@ export default function Profile() {
     { key: 'bought', label: '我买到的', icon: CreditCard, count: boughtOrders.length },
     { key: 'sold', label: '我卖出的', icon: TrendingUp, count: soldOrders.length },
     { key: 'offers', label: '收到的报价', icon: Tag, count: pendingOffers.length },
+    { key: 'offers-sent', label: '我的报价', icon: MessageCircle, count: sentOffers.length },
     { key: 'favorites', label: '收藏夹', icon: Heart, count: 3 },
     { key: 'reviews', label: '晒号反馈', icon: Star, count: reviews.length },
     { key: 'exposure', label: '违规曝光', icon: AlertTriangle, count: 0 },
@@ -310,82 +322,180 @@ export default function Profile() {
               </div>
             )}
 
-            {activeTab === 'offers' && (
-              <div className="space-y-3">
-                {receivedOffers.length > 0 ? (
-                  receivedOffers.map((offer) => (
-                    <div key={offer.id} className="glass-card p-4">
-                      <div className="flex items-start gap-4 mb-3">
-                        <img
-                          src={offer.buyer.avatar}
-                          alt=""
-                          className="w-12 h-12 rounded-xl object-cover shrink-0"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="font-medium text-white">{offer.buyer.nickname}</p>
-                            <span className={`tag-neon ${offerStatusConfig[offer.status].color} text-xs shrink-0`}>
-                              {offerStatusConfig[offer.status].label}
-                            </span>
+            {(activeTab === 'offers' || activeTab === 'offers-sent') && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex gap-2 flex-wrap">
+                    {([
+                      { key: 'all', label: '全部' },
+                      { key: 'pending', label: '待处理' },
+                      { key: 'accepted', label: '已同意' },
+                      { key: 'rejected', label: '已拒绝' },
+                    ] as const).map((f) => (
+                      <button
+                        key={f.key}
+                        onClick={() => setOfferFilter(f.key)}
+                        className={`px-3 py-1.5 rounded-full text-xs transition-colors ${
+                          offerFilter === f.key
+                            ? 'bg-neon-purple/20 text-neon-purple border border-neon-purple/40'
+                            : 'bg-white/5 text-white/50 border border-white/10 hover:border-white/20'
+                        }`}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="text-xs text-white/40">
+                    共 {getFilteredOffers(activeTab === 'offers' ? receivedOffers : sentOffers).length} 条
+                  </span>
+                </div>
+
+                {getFilteredOffers(activeTab === 'offers' ? receivedOffers : sentOffers).length > 0 ? (
+                  getFilteredOffers(activeTab === 'offers' ? receivedOffers : sentOffers).map((offer) => {
+                    const offerPost = posts.find((p) => p.id === offer.postId);
+                    const relatedOrder = getOfferOrder(offer.id);
+                    const isSellerView = activeTab === 'offers';
+
+                    return (
+                      <div key={offer.id} className="glass-card p-4">
+                        <div className="flex items-start gap-4 mb-3">
+                          <img
+                            src={isSellerView ? offer.buyer.avatar : offer.seller.avatar}
+                            alt=""
+                            className="w-12 h-12 rounded-xl object-cover shrink-0"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="font-medium text-white">
+                                {isSellerView ? offer.buyer.nickname : offer.seller.nickname}
+                              </p>
+                              <span className={`tag-neon ${offerStatusConfig[offer.status].color} text-xs shrink-0`}>
+                                {offerStatusConfig[offer.status].label}
+                              </span>
+                            </div>
+                            <p className="text-sm text-white/50 mt-0.5 flex items-center gap-2">
+                              <Clock size={12} />
+                              {formatDate(offer.createdAt)}
+                            </p>
                           </div>
-                          <p className="text-sm text-white/50 mt-0.5 flex items-center gap-2">
-                            <Clock size={12} />
-                            {formatDate(offer.createdAt)}
-                          </p>
                         </div>
-                      </div>
-                      <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 mb-3">
-                        <div>
-                          <p className="text-xs text-white/50">买家出价</p>
-                          <p className="text-xl font-bold text-gradient">{formatPrice(offer.price)}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-xs text-white/50">你的报价</p>
-                          <p className="text-sm text-white/70">
-                            {posts.find((p) => p.id === offer.postId)
-                              ? formatPrice(posts.find((p) => p.id === offer.postId)!.price)
-                              : '-'}
-                          </p>
-                        </div>
-                      </div>
-                      {offer.message && (
-                        <div className="p-3 rounded-xl bg-neon-purple/5 border border-neon-purple/10 mb-3">
-                          <p className="text-sm text-white/70">
-                            <MessageCircle size={14} className="inline mr-1.5 text-neon-purple" />
-                            {offer.message}
-                          </p>
-                        </div>
-                      )}
-                      {offer.status === 'pending' && (
-                        <div className="flex gap-3">
-                          <button
-                            onClick={() => acceptOffer(offer.id)}
-                            className="btn-gradient flex-1 text-sm py-2 flex items-center justify-center gap-1"
+
+                        {offerPost && (
+                          <Link
+                            to={`/trade/${offer.postId}`}
+                            className="flex gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors mb-3"
                           >
-                            <CheckCircle2 size={14} />
-                            同意议价
-                          </button>
-                          <button
-                            onClick={() => rejectOffer(offer.id)}
-                            className="btn-outline flex-1 text-sm py-2 flex items-center justify-center gap-1"
-                          >
-                            <XCircle size={14} />
-                            拒绝
-                          </button>
+                            <img
+                              src={offerPost.screenshots[0]}
+                              alt=""
+                              className="w-16 h-16 rounded-lg object-cover shrink-0"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-white truncate">{offerPost.title}</p>
+                              <p className="text-xs text-white/50 mt-1">{offerPost.rank} · {offerPost.server}</p>
+                              <p className="text-xs text-neon-cyan mt-1">
+                                帖子原价：{formatPrice(offerPost.price)}
+                              </p>
+                            </div>
+                            <ArrowRight size={16} className="text-white/30 shrink-0 self-center" />
+                          </Link>
+                        )}
+
+                        <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 mb-3">
+                          <div>
+                            <p className="text-xs text-white/50">
+                              {isSellerView ? '买家出价' : '我的出价'}
+                            </p>
+                            <p className="text-xl font-bold text-gradient">{formatPrice(offer.price)}</p>
+                          </div>
+                          {offerPost && (
+                            <div className="text-right">
+                              <p className="text-xs text-white/50">
+                                {isSellerView ? '你的报价' : '卖家标价'}
+                              </p>
+                              <p className="text-sm text-white/70">{formatPrice(offerPost.price)}</p>
+                              <p className="text-xs text-neon-orange">
+                                {offerPost.price > offer.price
+                                  ? `低 ${formatPrice(offerPost.price - offer.price)}`
+                                  : offerPost.price < offer.price
+                                  ? `高 ${formatPrice(offer.price - offerPost.price)}`
+                                  : '持平'}
+                              </p>
+                            </div>
+                          )}
                         </div>
-                      )}
-                      {offer.status !== 'pending' && offer.respondedAt && (
-                        <p className="text-xs text-white/40 text-center">
-                          {offer.status === 'accepted' ? '已同意' : '已拒绝'} · {formatDate(offer.respondedAt)}
-                        </p>
-                      )}
-                    </div>
-                  ))
+
+                        {offer.message && (
+                          <div className="p-3 rounded-xl bg-neon-purple/5 border border-neon-purple/10 mb-3">
+                            <p className="text-sm text-white/70">
+                              <MessageCircle size={14} className="inline mr-1.5 text-neon-purple" />
+                              {offer.message}
+                            </p>
+                          </div>
+                        )}
+
+                        {relatedOrder && (
+                          <Link
+                            to={`/order/${relatedOrder.id}`}
+                            className="block mb-3 p-3 rounded-xl bg-neon-purple/10 border border-neon-purple/20 hover:bg-neon-purple/15 transition-colors"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Shield size={14} className="text-neon-purple" />
+                                <span className="text-sm font-medium text-white">关联订单</span>
+                              </div>
+                              <span className="text-xs text-neon-purple">查看 →</span>
+                            </div>
+                            <p className="text-xs text-white/50 mt-1">
+                              订单号：{relatedOrder.id} · {orderStatusConfig[relatedOrder.status].label}
+                            </p>
+                          </Link>
+                        )}
+
+                        {offer.status === 'pending' && isSellerView && (
+                          <div className="flex gap-3">
+                            <button
+                              onClick={() => acceptOffer(offer.id)}
+                              className="btn-gradient flex-1 text-sm py-2 flex items-center justify-center gap-1"
+                            >
+                              <CheckCircle2 size={14} />
+                              同意议价
+                            </button>
+                            <button
+                              onClick={() => rejectOffer(offer.id)}
+                              className="btn-outline flex-1 text-sm py-2 flex items-center justify-center gap-1"
+                            >
+                              <XCircle size={14} />
+                              拒绝
+                            </button>
+                          </div>
+                        )}
+
+                        {offer.status === 'accepted' && !isSellerView && !relatedOrder && offerPost && offerPost.status === 'active' && (
+                          <Link
+                            to={`/trade/${offer.postId}`}
+                            className="btn-gradient w-full text-sm py-2.5 flex items-center justify-center gap-1"
+                          >
+                            <Shield size={14} />
+                            按议价下单
+                          </Link>
+                        )}
+
+                        {offer.status !== 'pending' && offer.respondedAt && (
+                          <p className="text-xs text-white/40 text-center">
+                            {offer.status === 'accepted' ? '已同意' : '已拒绝'} · {formatDate(offer.respondedAt)}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })
                 ) : (
                   <div className="glass-card p-10 text-center text-white/50">
                     <Tag size={40} className="mx-auto mb-3 opacity-30" />
-                    <p>暂无收到的报价</p>
-                    <p className="text-xs mt-1">有人对你的账号感兴趣会来报价哦</p>
+                    <p>{activeTab === 'offers' ? '暂无收到的报价' : '暂无发出的报价'}</p>
+                    <p className="text-xs mt-1">
+                      {activeTab === 'offers' ? '有人对你的账号感兴趣会来报价哦' : '去逛逛，遇到心仪账号可以出价试试'}
+                    </p>
                   </div>
                 )}
               </div>

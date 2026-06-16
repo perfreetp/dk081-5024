@@ -50,10 +50,12 @@ export default function Trade() {
   const reviews = useAppStore((s) => s.reviews);
   const currentUser = useAppStore((s) => s.currentUser);
   const createTradeOrder = useAppStore((s) => s.createTradeOrder);
+  const createTradeOrderFromOffer = useAppStore((s) => s.createTradeOrderFromOffer);
   const getMediatorRecords = useAppStore((s) => s.getMediatorRecords);
   const getPriceReference = useAppStore((s) => s.getPriceReference);
   const createOffer = useAppStore((s) => s.createOffer);
   const getPostOffers = useAppStore((s) => s.getPostOffers);
+  const getPostUserOffer = useAppStore((s) => s.getPostUserOffer);
   const closePost = useAppStore((s) => s.closePost);
 
   const post = posts.find((p) => p.id === postId) || posts[0];
@@ -63,6 +65,8 @@ export default function Trade() {
   const isSeller = post?.userId === currentUser.id;
   const postOffers = getPostOffers(post?.id || '');
   const pendingOffers = postOffers.filter((o) => o.status === 'pending');
+  const myOffer = !isSeller ? getPostUserOffer(post?.id || '', currentUser.id) : undefined;
+  const acceptedOffer = myOffer?.status === 'accepted' ? myOffer : undefined;
 
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [selectedMediator, setSelectedMediator] = useState<string | null>(mediators[0]?.id || null);
@@ -73,6 +77,7 @@ export default function Trade() {
   const [showOfferModal, setShowOfferModal] = useState(false);
   const [offerPrice, setOfferPrice] = useState('');
   const [offerMessage, setOfferMessage] = useState('');
+  const [useOfferPrice, setUseOfferPrice] = useState(false);
 
   if (!post) return null;
 
@@ -83,18 +88,23 @@ export default function Trade() {
   const handleConfirmPay = () => {
     if (!selectedMediator || !post) return;
 
-    const order = createTradeOrder({
-      postId: post.id,
-      buyerId: currentUser.id,
-      sellerId: post.user.id,
-      mediatorId: selectedMediator,
-      amount: post.price,
-      postTitle: post.title,
-      postCover: post.screenshots[0],
-    });
-
-    setShowOrderModal(false);
-    setOrderSuccess({ orderId: order.id });
+    if (useOfferPrice && acceptedOffer) {
+      const order = createTradeOrderFromOffer(acceptedOffer.id, selectedMediator);
+      setShowOrderModal(false);
+      setOrderSuccess({ orderId: order.id });
+    } else {
+      const order = createTradeOrder({
+        postId: post.id,
+        buyerId: currentUser.id,
+        sellerId: post.user.id,
+        mediatorId: selectedMediator,
+        amount: post.price,
+        postTitle: post.title,
+        postCover: post.screenshots[0],
+      });
+      setShowOrderModal(false);
+      setOrderSuccess({ orderId: order.id });
+    }
   };
 
   const handleSubmitOffer = () => {
@@ -462,14 +472,62 @@ export default function Trade() {
               </>
             ) : (
               <>
+                {acceptedOffer ? (
+                  <div className="mb-4 p-4 rounded-xl bg-neon-orange/10 border border-neon-orange/30">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Tag size={16} className="text-neon-orange" />
+                      <span className="text-sm font-medium text-neon-orange">卖家已同意您的报价</span>
+                    </div>
+                    <div className="flex items-end justify-between">
+                      <div>
+                        <p className="text-xs text-white/50 line-through">原价 {formatPrice(post.price)}</p>
+                        <p className="text-xl font-bold text-neon-orange">
+                          议价 {formatPrice(acceptedOffer.price)}
+                          <span className="text-xs text-white/50 ml-2">
+                            省 {formatPrice(post.price - acceptedOffer.price)}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setUseOfferPrice(!useOfferPrice)}
+                      className={`mt-3 w-full p-2 rounded-lg text-xs font-medium transition-colors ${
+                        useOfferPrice
+                          ? 'bg-neon-orange/20 text-neon-orange border border-neon-orange/40'
+                          : 'bg-white/5 text-white/60 border border-white/10'
+                      }`}
+                    >
+                      {useOfferPrice ? '✓ 使用议价下单' : '点击切换为议价下单'}
+                    </button>
+                  </div>
+                ) : myOffer ? (
+                  <div className="mb-4 p-4 rounded-xl bg-white/5 border border-white/10">
+                    <div className="flex items-center gap-2">
+                      <Tag size={16} className="text-white/50" />
+                      <span className="text-sm text-white/70">
+                        {myOffer.status === 'pending' && '您的报价等待卖家回复中...'}
+                        {myOffer.status === 'rejected' && '卖家已拒绝您的报价'}
+                        {myOffer.status === 'cancelled' && '您已取消报价'}
+                      </span>
+                    </div>
+                    {myOffer.status === 'rejected' && (
+                      <p className="text-xs text-white/40 mt-1">可以重新议价或按原价购买</p>
+                    )}
+                  </div>
+                ) : null}
+
                 <div className="flex items-end justify-between mb-5">
                   <div>
-                    <p className="text-sm text-white/50 mb-1">交易总价</p>
-                    <div className="text-3xl font-bold text-gradient">{formatPrice(post.price)}</div>
+                    <p className="text-sm text-white/50 mb-1">
+                      {useOfferPrice && acceptedOffer ? '议价成交价' : '交易总价'}
+                    </p>
+                    <div className="text-3xl font-bold text-gradient">
+                      {formatPrice(useOfferPrice && acceptedOffer ? acceptedOffer.price : post.price)}
+                    </div>
                   </div>
                   {selectedMediator && (
                     <div className="text-right text-xs text-white/50">
-                      中介费：{formatPrice(Math.round(post.price * 0.03))}
+                      中介费：{formatPrice(Math.round((useOfferPrice && acceptedOffer ? acceptedOffer.price : post.price) * 0.03))}
                       <br />
                       <span className="text-white/30">（约3%）</span>
                     </div>
@@ -525,14 +583,16 @@ export default function Trade() {
                     : '发起担保交易'}
                 </button>
 
-                <button
-                  onClick={() => setShowOfferModal(true)}
-                  disabled={post.status !== 'active'}
-                  className="btn-outline w-full mt-3 flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  <Tag size={16} />
-                  我要议价
-                </button>
+                {post.acceptOffer && !myOffer?.status?.includes('pending') && (
+                  <button
+                    onClick={() => setShowOfferModal(true)}
+                    disabled={post.status !== 'active'}
+                    className="btn-outline w-full mt-3 flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    <Tag size={16} />
+                    {myOffer ? '重新议价' : '我要议价'}
+                  </button>
+                )}
 
                 <button className="btn-outline w-full mt-3 flex items-center justify-center gap-2">
                   <MessageCircle size={18} />
@@ -562,7 +622,9 @@ export default function Trade() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dark-900/80 backdrop-blur-sm">
           <div className="glass-card p-8 w-full max-w-md">
             <h3 className="text-xl font-bold text-white mb-2">确认担保交易</h3>
-            <p className="text-sm text-white/60 mb-6">请仔细核对以下信息</p>
+            <p className="text-sm text-white/60 mb-6">
+              {useOfferPrice && acceptedOffer ? '您正在按议价金额下单' : '请仔细核对以下信息'}
+            </p>
 
             <div className="space-y-4 mb-6">
               <div className="flex gap-3 p-4 rounded-xl bg-white/5">
@@ -571,8 +633,25 @@ export default function Trade() {
                   <p className="font-medium text-white truncate">{truncateText(post.title, 30)}</p>
                   <p className="text-sm text-white/50 mt-1">{post.rank} · {post.server}</p>
                 </div>
-                <div className="text-lg font-bold text-gradient self-center">{formatPrice(post.price)}</div>
+                <div className="text-lg font-bold text-gradient self-center">
+                  {formatPrice(useOfferPrice && acceptedOffer ? acceptedOffer.price : post.price)}
+                  {useOfferPrice && acceptedOffer && (
+                    <p className="text-xs text-neon-orange text-right">议价成交</p>
+                  )}
+                </div>
               </div>
+
+              {useOfferPrice && acceptedOffer && (
+                <div className="p-3 rounded-xl bg-neon-orange/10 border border-neon-orange/20">
+                  <div className="flex items-center gap-2">
+                    <Tag size={14} className="text-neon-orange" />
+                    <p className="text-xs text-white/70">
+                      卖家原价 <span className="line-through">{formatPrice(post.price)}</span>，
+                      为您节省 <span className="text-neon-orange font-medium">{formatPrice(post.price - acceptedOffer.price)}</span>
+                    </p>
+                  </div>
+                </div>
+              )}
 
               <div className="p-4 rounded-xl bg-white/5">
                 <p className="text-xs text-white/50 mb-2">担保中介</p>
@@ -609,7 +688,7 @@ export default function Trade() {
               <div className="flex justify-between items-center pt-4 border-t border-white/5">
                 <span className="text-white/60">应付金额（含中介费）</span>
                 <span className="text-2xl font-bold text-gradient">
-                  {formatPrice(post.price + Math.round(post.price * 0.03))}
+                  {formatPrice((useOfferPrice && acceptedOffer ? acceptedOffer.price : post.price) + Math.round((useOfferPrice && acceptedOffer ? acceptedOffer.price : post.price) * 0.03))}
                 </span>
               </div>
             </div>

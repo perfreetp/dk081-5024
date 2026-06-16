@@ -79,8 +79,13 @@ interface AppState {
     amount: number;
     postTitle: string;
     postCover: string;
+    offerId?: string;
   }) => TradeOrder;
+  createTradeOrderFromOffer: (offerId: string, mediatorId: string) => TradeOrder;
+  advanceOrderStage: (orderId: string, note?: string) => void;
   getOrderById: (orderId: string) => TradeOrder | undefined;
+  getOfferById: (offerId: string) => Offer | undefined;
+  getPostUserOffer: (postId: string, userId: string) => Offer | undefined;
   createOffer: (data: {
     postId: string;
     buyerId: string;
@@ -185,6 +190,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       postCover: data.postCover,
       stages,
       currentStage,
+      offerId: data.offerId,
     };
 
     set((state) => ({
@@ -197,8 +203,61 @@ export const useAppStore = create<AppState>((set, get) => ({
     return newOrder;
   },
 
+  createTradeOrderFromOffer: (offerId, mediatorId) => {
+    const offer = get().offers.find((o) => o.id === offerId);
+    const post = get().posts.find((p) => p.id === offer?.postId);
+    if (!offer || !post) throw new Error('Offer or post not found');
+
+    return get().createTradeOrder({
+      postId: post.id,
+      buyerId: offer.buyerId,
+      sellerId: offer.sellerId,
+      mediatorId,
+      amount: offer.price,
+      postTitle: post.title,
+      postCover: post.screenshots[0],
+      offerId: offer.id,
+    });
+  },
+
+  advanceOrderStage: (orderId, note) => {
+    const now = new Date().toISOString();
+    set((state) => {
+      const order = state.orders.find((o) => o.id === orderId);
+      if (!order) return state;
+
+      const currentIdx = order.stages.findIndex((s) => s.type === order.currentStage);
+      const nextIdx = currentIdx + 1;
+      if (nextIdx >= order.stages.length) return state;
+
+      const nextStage = order.stages[nextIdx];
+      const newStages = order.stages.map((s, idx) => {
+        if (idx === currentIdx) return { ...s, completedAt: now, note: note || s.note };
+        return s;
+      });
+      const newCurrentStage = nextStage.type;
+      const newStatus = nextIdx >= order.stages.length - 1 ? 'completed' as const : order.status;
+
+      return {
+        orders: state.orders.map((o) =>
+          o.id === orderId
+            ? { ...o, stages: newStages, currentStage: newCurrentStage, status: newStatus }
+            : o
+        ),
+      };
+    });
+  },
+
   getOrderById: (orderId) => {
     return get().orders.find((o) => o.id === orderId);
+  },
+
+  getOfferById: (offerId) => {
+    return get().offers.find((o) => o.id === offerId);
+  },
+
+  getPostUserOffer: (postId, userId) => {
+    return get().offers.find((o) => o.postId === postId && o.buyerId === userId);
   },
 
   createOffer: (data) => {
