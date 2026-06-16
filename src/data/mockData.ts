@@ -1,4 +1,4 @@
-import type { User, Game, Circle, Post, Mediator, PitfallCase, PriceReference, Review, QAComment, CreditRecord, TradeOrder } from '@/types';
+import type { User, Game, Circle, Post, Mediator, PitfallCase, PriceReference, Review, QAComment, CreditRecord, TradeOrder, MediatorOrderRecord } from '@/types';
 
 export const mockUsers: User[] = [
   {
@@ -311,6 +311,9 @@ export const mockMediators: Mediator[] = [
     isOnline: true,
     responseTime: '平均3分钟',
     introduction: '3年中介经验，已处理千余单，熟悉各类游戏账号交接流程。',
+    avgResponseMinutes: 3,
+    disputeResolutionRate: 98,
+    completedOrders7Days: 42,
   },
   {
     id: 'm2',
@@ -323,6 +326,9 @@ export const mockMediators: Mediator[] = [
     isOnline: true,
     responseTime: '平均5分钟',
     introduction: '擅长原神、崩坏等二次元游戏账号担保，对账号价值评估精准。',
+    avgResponseMinutes: 5,
+    disputeResolutionRate: 95,
+    completedOrders7Days: 28,
   },
   {
     id: 'm3',
@@ -335,6 +341,9 @@ export const mockMediators: Mediator[] = [
     isOnline: true,
     responseTime: '平均2分钟',
     introduction: '平台金牌中介，处理速度快，纠纷调解经验丰富，零差评记录保持者。',
+    avgResponseMinutes: 2,
+    disputeResolutionRate: 100,
+    completedOrders7Days: 56,
   },
   {
     id: 'm4',
@@ -347,7 +356,27 @@ export const mockMediators: Mediator[] = [
     isOnline: false,
     responseTime: '平均8分钟',
     introduction: '专注MOBA类游戏账号担保，熟悉王者荣耀、LOL账号价值体系。',
+    avgResponseMinutes: 8,
+    disputeResolutionRate: 92,
+    completedOrders7Days: 15,
   },
+];
+
+export const mockMediatorRecords: MediatorOrderRecord[] = [
+  { id: 'mor1', mediatorId: 'm1', postTitle: '王者荣耀 V10 全英雄账号', amount: 3800, status: 'completed', buyer: '峡谷学霸', seller: '电竞小王子', responseMinutes: 2, durationMinutes: 18, createdAt: '2024-01-15T09:00:00Z' },
+  { id: 'mor2', mediatorId: 'm1', postTitle: '原神 满命胡桃账号', amount: 4200, status: 'completed', buyer: '游戏玩家A', seller: '原神肝帝', responseMinutes: 4, durationMinutes: 25, createdAt: '2024-01-15T06:30:00Z' },
+  { id: 'mor3', mediatorId: 'm1', postTitle: 'LOL 大师段位账号', amount: 1800, status: 'disputed', result: 'compromise', buyer: '玩家小明', seller: 'LOL老玩家', responseMinutes: 3, durationMinutes: 120, createdAt: '2024-01-14T20:15:00Z' },
+  { id: 'mor4', mediatorId: 'm1', postTitle: '和平精英 王牌账号', amount: 2200, status: 'completed', buyer: '吃鸡少年', seller: 'FPS神枪手', responseMinutes: 5, durationMinutes: 22, createdAt: '2024-01-14T15:00:00Z' },
+  { id: 'mor5', mediatorId: 'm1', postTitle: '王者荣耀 省标露娜', amount: 950, status: 'completed', buyer: '露娜玩家', seller: '电竞小王子', responseMinutes: 1, durationMinutes: 15, createdAt: '2024-01-14T10:30:00Z' },
+  { id: 'mor6', mediatorId: 'm2', postTitle: '原神 三神齐全账号', amount: 2800, status: 'completed', buyer: '萌新玩家', seller: '开服大佬', responseMinutes: 6, durationMinutes: 30, createdAt: '2024-01-15T08:00:00Z' },
+  { id: 'mor7', mediatorId: 'm2', postTitle: '崩坏星穹铁道 满命希儿', amount: 3500, status: 'completed', buyer: '星铁玩家', seller: '二刺螈', responseMinutes: 4, durationMinutes: 20, createdAt: '2024-01-14T18:00:00Z' },
+  { id: 'mor8', mediatorId: 'm2', postTitle: '原神 55级开局号', amount: 680, status: 'completed', buyer: '小号玩家', seller: '闲鱼卖家', responseMinutes: 7, durationMinutes: 15, createdAt: '2024-01-14T12:00:00Z' },
+  { id: 'mor9', mediatorId: 'm3', postTitle: 'LOL 钻石1 120英雄', amount: 1200, status: 'completed', buyer: '原神肝帝', seller: '峡谷学霸', responseMinutes: 2, durationMinutes: 16, createdAt: '2024-01-12T10:00:00Z' },
+  { id: 'mor10', mediatorId: 'm3', postTitle: '原神 60级 满命胡桃 三神', amount: 5600, status: 'processing', buyer: 'FPS神枪手', seller: '原神肝帝', responseMinutes: 3, durationMinutes: 45, createdAt: '2024-01-15T08:00:00Z' },
+  { id: 'mor11', mediatorId: 'm3', postTitle: '王者荣耀 V8 多皮肤', amount: 2500, status: 'completed', buyer: '土豪玩家', seller: '退游老哥', responseMinutes: 1, durationMinutes: 12, createdAt: '2024-01-14T22:00:00Z' },
+  { id: 'mor12', mediatorId: 'm3', postTitle: '和平精英 玛莎拉蒂皮肤', amount: 3200, status: 'completed', buyer: '载具收藏家', seller: '皮肤号商', responseMinutes: 4, durationMinutes: 25, createdAt: '2024-01-14T16:00:00Z' },
+  { id: 'mor13', mediatorId: 'm4', postTitle: '王者荣耀 王者段位', amount: 600, status: 'completed', buyer: '新手小白', seller: '代练工作室', responseMinutes: 10, durationMinutes: 28, createdAt: '2024-01-13T20:00:00Z' },
+  { id: 'mor14', mediatorId: 'm4', postTitle: 'LOL 铂金账号', amount: 350, status: 'disputed', result: 'buyer_win', buyer: '被坑玩家', seller: '不良卖家', responseMinutes: 12, durationMinutes: 180, createdAt: '2024-01-12T14:00:00Z' },
 ];
 
 export const mockPitfalls: PitfallCase[] = [

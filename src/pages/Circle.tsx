@@ -74,9 +74,9 @@ export default function Circle() {
               <button className="btn-outline">
                 已加入
               </button>
-              <button className="btn-gradient">
+              <Link to={`/post?gameId=${gameId}&circleId=${currentCircle?.id}`} className="btn-gradient">
                 发帖交易
-              </button>
+              </Link>
             </div>
           </div>
         </div>

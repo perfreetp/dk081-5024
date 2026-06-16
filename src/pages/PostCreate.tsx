@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useMemo, useRef } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ChevronLeft,
   Upload,
@@ -11,19 +11,34 @@ import {
   CheckCircle2,
   Info,
   Plus,
+  Sparkles,
+  AlertTriangle,
+  TrendingUp,
+  TrendingDown,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react';
 import { Container } from '@/components/layout/Container';
 import { useAppStore } from '@/store';
+import { formatPrice } from '@/utils/format';
 
 export default function PostCreate() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const games = useAppStore((s) => s.games);
   const circles = useAppStore((s) => s.circles);
   const createPost = useAppStore((s) => s.createPost);
   const currentUser = useAppStore((s) => s.currentUser);
+  const getPriceReference = useAppStore((s) => s.getPriceReference);
+
+  const urlGameId = searchParams.get('gameId');
+  const urlCircleId = searchParams.get('circleId');
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
-    gameId: games[0]?.id || '',
+    gameId: urlGameId || games[0]?.id || '',
+    circleId: urlCircleId || '',
     title: '',
     description: '',
     price: '',
@@ -31,9 +46,7 @@ export default function PostCreate() {
     server: '',
     level: 0,
     assets: [] as string[],
-    screenshots: [
-      'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=game%20account%20profile%20showcase%20neon%20purple%20cyan&image_size=landscape_16_9',
-    ] as string[],
+    screenshots: [] as string[],
     useGuarantee: true,
     tags: [] as string[],
     showSchool: true,
@@ -43,8 +56,92 @@ export default function PostCreate() {
     acceptOffer: true,
   });
 
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+
   const updateField = <K extends keyof typeof formData>(key: K, value: typeof formData[K]) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const priceCheck = useMemo(() => {
+    const priceNum = Number(formData.price);
+    if (!priceNum || !formData.gameId || !formData.rank) return null;
+    const ref = getPriceReference(formData.gameId, formData.rank);
+    if (!ref) return null;
+    const midPrice = ref.avgPrice;
+    const highThreshold = midPrice * 1.4;
+    const lowThreshold = midPrice * 0.6;
+    let level: 'normal' | 'high' | 'low' = 'normal';
+    let tip = '';
+    if (priceNum >= highThreshold) {
+      level = 'high';
+      tip = '定价明显高于市场参考价，建议适当调低以加快成交。如账号确有稀有资产可在描述中详细说明。';
+    } else if (priceNum <= lowThreshold && priceNum > 0) {
+      level = 'low';
+      tip = '⚠️ 定价明显低于市场价！学生玩家请注意：过低价格容易被判定为钓鱼或虚假账号，请核实后谨慎发布。';
+    } else {
+      tip = '定价处于合理区间，参考同类型账号成交数据。';
+    }
+    return { level, tip, ref };
+  }, [formData.price, formData.gameId, formData.rank, getPriceReference]);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setUploadError('');
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const newShots: string[] = [];
+    const remaining = 9 - formData.screenshots.length;
+
+    for (let i = 0; i < Math.min(files.length, remaining); i++) {
+      const file = files[i];
+      if (file.size > 5 * 1024 * 1024) {
+        setUploadError(`图片 "${file.name}" 超过5MB，已跳过`);
+        continue;
+      }
+      if (!file.type.startsWith('image/')) continue;
+
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const dataUrl = ev.target?.result as string;
+        setFormData((prev) => ({
+          ...prev,
+          screenshots: prev.screenshots.length < 9 ? [...prev.screenshots, dataUrl] : prev.screenshots,
+        }));
+      };
+      reader.readAsDataURL(file);
+      newShots.push(file.name);
+    }
+
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const triggerFileSelect = () => {
+    fileInputRef.current?.click();
+  };
+
+  const generateAIPreview = async () => {
+    if (formData.screenshots.length >= 9) return;
+    setIsGenerating(true);
+    setUploadError('');
+
+    try {
+      const game = games.find((g) => g.id === formData.gameId);
+      const prompt = encodeURIComponent(
+        `${game?.name || 'game'} account profile showcase, ${formData.rank || 'high rank'}, gaming UI interface, neon purple cyan cyber style, screen capture, detailed inventory and stats display, high quality`
+      );
+      const url = `https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=${prompt}&image_size=landscape_16_9`;
+
+      await new Promise((r) => setTimeout(r, 600));
+      setFormData((prev) => ({
+        ...prev,
+        screenshots: prev.screenshots.length < 9 ? [...prev.screenshots, url] : prev.screenshots,
+      }));
+    } catch {
+      setUploadError('AI生成失败，请重试或选择本地图片');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const addAsset = () => {
@@ -55,10 +152,7 @@ export default function PostCreate() {
   };
 
   const removeAsset = (idx: number) => {
-    updateField(
-      'assets',
-      formData.assets.filter((_, i) => i !== idx)
-    );
+    updateField('assets', formData.assets.filter((_, i) => i !== idx));
   };
 
   const addTag = () => {
@@ -69,33 +163,33 @@ export default function PostCreate() {
   };
 
   const removeTag = (idx: number) => {
-    updateField(
-      'tags',
-      formData.tags.filter((_, i) => i !== idx)
-    );
+    updateField('tags', formData.tags.filter((_, i) => i !== idx));
   };
 
   const removeScreenshot = (idx: number) => {
-    if (formData.screenshots.length > 1) {
-      updateField(
-        'screenshots',
-        formData.screenshots.filter((_, i) => i !== idx)
-      );
-    }
+    updateField('screenshots', formData.screenshots.filter((_, i) => i !== idx));
   };
 
   const handleSubmit = () => {
+    if (formData.screenshots.length === 0) {
+      alert('请至少上传1张账号截图');
+      return;
+    }
     if (!formData.title || !formData.price || !formData.rank) {
       alert('请填写完整信息：标题、价格、段位');
       return;
     }
 
-    const circle = circles.find((c) => c.gameId === formData.gameId);
+    const matchedCircleId =
+      formData.circleId ||
+      circles.find((c) => c.gameId === formData.gameId)?.id ||
+      circles[0]?.id ||
+      '';
 
     createPost({
       userId: currentUser.id,
       gameId: formData.gameId,
-      circleId: circle?.id || circles[0]?.id || '',
+      circleId: matchedCircleId,
       title: formData.title,
       description: formData.description || '卖家暂未填写描述',
       price: Number(formData.price),
@@ -108,22 +202,38 @@ export default function PostCreate() {
       tags: formData.tags,
     });
 
-    navigate('/');
+    if (urlCircleId) {
+      navigate(`/circle/${formData.gameId}`);
+    } else {
+      navigate('/');
+    }
   };
 
   const selectedGame = games.find((g) => g.id === formData.gameId);
+  const selectedCircle = circles.find((c) => c.gameId === formData.gameId);
 
   return (
     <Container>
-      <Link to="/" className="inline-flex items-center gap-2 text-white/60 hover:text-white mb-5 transition-colors">
+      <Link
+        to={urlCircleId ? `/circle/${formData.gameId}` : '/'}
+        className="inline-flex items-center gap-2 text-white/60 hover:text-white mb-5 transition-colors"
+      >
         <ChevronLeft size={18} />
-        返回发现
+        返回{urlCircleId ? '圈子' : '发现'}
       </Link>
 
       <div className="max-w-3xl mx-auto">
         <div className="mb-8">
           <h1 className="font-display text-3xl font-bold text-white mb-2">发布交易帖</h1>
           <p className="text-white/60">完善账号信息，让买家更放心，提高交易成功率</p>
+          {urlCircleId && selectedCircle && (
+            <div className="mt-4 p-3 rounded-xl bg-neon-purple/10 border border-neon-purple/30 flex items-center gap-2">
+              <CheckCircle2 size={16} className="text-neon-purple" />
+              <span className="text-sm text-white/80">
+                将发布至 <span className="font-medium text-neon-purple">{selectedCircle.name}</span>
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="space-y-6">
@@ -159,33 +269,69 @@ export default function PostCreate() {
 
           <div className="glass-card p-6">
             <h2 className="text-lg font-semibold text-white mb-4">战绩截图</h2>
-            <p className="text-sm text-white/50 mb-4">请上传清晰的账号截图，至少1张，最多9张</p>
+            <p className="text-sm text-white/50 mb-4">
+              请上传清晰的账号截图，至少1张，最多9张。支持选择本地图片或AI生成预览图
+            </p>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+
             <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3">
               {formData.screenshots.map((img, idx) => (
                 <div key={idx} className="relative aspect-square rounded-xl overflow-hidden group">
                   <img src={img} alt="" className="w-full h-full object-cover" />
-                  {formData.screenshots.length > 1 && (
-                    <button
-                      onClick={() => removeScreenshot(idx)}
-                      className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-red-500/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X size={14} className="text-white" />
-                    </button>
-                  )}
+                  <button
+                    onClick={() => removeScreenshot(idx)}
+                    className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-red-500/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X size={14} className="text-white" />
+                  </button>
                 </div>
               ))}
               {formData.screenshots.length < 9 && (
-                <button className="aspect-square rounded-xl border-2 border-dashed border-white/20 hover:border-neon-purple/50 hover:bg-neon-purple/5 flex flex-col items-center justify-center text-white/40 hover:text-neon-purple transition-all">
-                  <ImagePlus size={28} />
-                  <span className="text-xs mt-1">添加截图</span>
-                </button>
+                <>
+                  <button
+                    onClick={triggerFileSelect}
+                    className="aspect-square rounded-xl border-2 border-dashed border-white/20 hover:border-neon-purple/50 hover:bg-neon-purple/5 flex flex-col items-center justify-center text-white/40 hover:text-neon-purple transition-all"
+                  >
+                    <ImagePlus size={28} />
+                    <span className="text-xs mt-1">选择图片</span>
+                  </button>
+                  <button
+                    onClick={generateAIPreview}
+                    disabled={isGenerating}
+                    className="aspect-square rounded-xl border-2 border-dashed border-white/20 hover:border-neon-cyan/50 hover:bg-neon-cyan/5 flex flex-col items-center justify-center text-white/40 hover:text-neon-cyan transition-all disabled:opacity-50"
+                  >
+                    {isGenerating ? (
+                      <Loader2 size={28} className="animate-spin" />
+                    ) : (
+                      <Sparkles size={28} />
+                    )}
+                    <span className="text-xs mt-1">{isGenerating ? '生成中' : 'AI生成'}</span>
+                  </button>
+                </>
               )}
             </div>
+
+            {uploadError && (
+              <div className="mt-3 p-3 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center gap-2 text-sm text-red-400">
+                <AlertCircle size={16} />
+                {uploadError}
+              </div>
+            )}
+
             <div className="mt-4 p-4 rounded-xl bg-neon-cyan/10 border border-neon-cyan/20">
               <div className="flex items-start gap-2">
                 <Upload size={16} className="text-neon-cyan shrink-0 mt-0.5" />
                 <p className="text-sm text-white/70">
-                  建议上传：<span className="text-neon-cyan">段位截图、资产截图、背包截图、商城截图</span>，截图越完整交易成功率越高！
+                  建议上传：<span className="text-neon-cyan">段位截图、资产截图、背包截图、商城截图</span>
+                  ，截图越完整交易成功率越高！
                 </p>
               </div>
             </div>
@@ -242,9 +388,59 @@ export default function PostCreate() {
                       value={formData.price}
                       onChange={(e) => updateField('price', e.target.value)}
                       placeholder="填写心理价位"
-                      className="input-field pl-9"
+                      className={`input-field pl-9 ${
+                        priceCheck?.level === 'high'
+                          ? 'border-neon-orange/50 focus:border-neon-orange'
+                          : priceCheck?.level === 'low'
+                          ? 'border-red-500/50 focus:border-red-500'
+                          : ''
+                      }`}
                     />
                   </div>
+                  {priceCheck?.ref && (
+                    <div className="mt-2 flex items-center gap-2 text-xs text-white/50">
+                      <TrendingUp size={12} className="text-neon-cyan" />
+                      <span>
+                        {selectedGame?.name} {formData.rank} 市场参考：
+                        <span className="text-neon-cyan">
+                          {formatPrice(priceCheck.ref.minPrice)} - {formatPrice(priceCheck.ref.maxPrice)}
+                        </span>
+                        （均价 {formatPrice(priceCheck.ref.avgPrice)}，近期 {priceCheck.ref.sampleCount} 笔成交）
+                      </span>
+                    </div>
+                  )}
+                  {priceCheck && (
+                    <div
+                      className={`mt-3 p-3 rounded-xl border flex items-start gap-2 text-sm ${
+                        priceCheck.level === 'normal'
+                          ? 'bg-green-500/10 border-green-500/20'
+                          : priceCheck.level === 'high'
+                          ? 'bg-neon-orange/10 border-neon-orange/30'
+                          : 'bg-red-500/10 border-red-500/30'
+                      }`}
+                    >
+                      {priceCheck.level === 'normal' && (
+                        <CheckCircle2 size={16} className="text-green-400 shrink-0 mt-0.5" />
+                      )}
+                      {priceCheck.level === 'high' && (
+                        <TrendingUp size={16} className="text-neon-orange shrink-0 mt-0.5" />
+                      )}
+                      {priceCheck.level === 'low' && (
+                        <AlertTriangle size={16} className="text-red-400 shrink-0 mt-0.5" />
+                      )}
+                      <p
+                        className={
+                          priceCheck.level === 'normal'
+                            ? 'text-green-400/90'
+                            : priceCheck.level === 'high'
+                            ? 'text-neon-orange'
+                            : 'text-red-400'
+                        }
+                      >
+                        {priceCheck.tip}
+                      </p>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm text-white/70 mb-2">账号等级</label>
@@ -284,10 +480,7 @@ export default function PostCreate() {
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-neon-purple/20 to-neon-cyan/20 border border-neon-purple/30 text-sm text-white"
                 >
                   {asset}
-                  <button
-                    onClick={() => removeAsset(idx)}
-                    className="hover:text-neon-pink transition-colors"
-                  >
+                  <button onClick={() => removeAsset(idx)} className="hover:text-neon-pink transition-colors">
                     <X size={14} />
                   </button>
                 </span>
@@ -495,7 +688,10 @@ export default function PostCreate() {
           </div>
 
           <div className="flex gap-4 pb-24 lg:pb-0">
-            <Link to="/" className="btn-outline flex-1 text-center">
+            <Link
+              to={urlCircleId ? `/circle/${formData.gameId}` : '/'}
+              className="btn-outline flex-1 text-center"
+            >
               取消
             </Link>
             <button onClick={handleSubmit} className="btn-gradient flex-1">

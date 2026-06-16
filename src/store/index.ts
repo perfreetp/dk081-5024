@@ -1,5 +1,18 @@
 import { create } from 'zustand';
-import type { User, Post, Circle, Mediator, QAComment, TradeOrder, Review, PitfallCase, PriceReference, CreditRecord, Game } from '@/types';
+import type {
+  User,
+  Post,
+  Circle,
+  Mediator,
+  QAComment,
+  TradeOrder,
+  Review,
+  PitfallCase,
+  PriceReference,
+  CreditRecord,
+  Game,
+  MediatorOrderRecord,
+} from '@/types';
 import {
   mockUsers,
   mockGames,
@@ -12,6 +25,7 @@ import {
   mockQAComments,
   mockCreditRecords,
   mockTradeOrders,
+  mockMediatorRecords,
 } from '@/data/mockData';
 
 interface AppState {
@@ -27,17 +41,32 @@ interface AppState {
   qaComments: QAComment[];
   creditRecords: CreditRecord[];
   orders: TradeOrder[];
+  mediatorRecords: MediatorOrderRecord[];
   activePost: Post | null;
   activeCircle: Circle | null;
+  pendingCircleGameId: string | null;
 
   setActivePost: (post: Post | null) => void;
   setActiveCircle: (circle: Circle | null) => void;
+  setPendingCircleGameId: (gameId: string | null) => void;
   addQAComment: (comment: Omit<QAComment, 'id' | 'createdAt'>) => void;
   createPost: (post: Omit<Post, 'id' | 'createdAt' | 'user' | 'game' | 'viewCount' | 'status'>) => void;
+  createTradeOrder: (data: {
+    postId: string;
+    buyerId: string;
+    sellerId: string;
+    mediatorId: string;
+    amount: number;
+    postTitle: string;
+    postCover: string;
+  }) => TradeOrder;
+  updatePostStatus: (postId: string, status: Post['status']) => void;
   getPostQA: (postId: string) => QAComment[];
   getUserOrders: (userId: string) => TradeOrder[];
   getUserReviews: (userId: string) => Review[];
   getGamePosts: (gameId: string) => Post[];
+  getMediatorRecords: (mediatorId: string) => MediatorOrderRecord[];
+  getPriceReference: (gameId: string, rank: string) => PriceReference | null;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -53,11 +82,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   qaComments: mockQAComments,
   creditRecords: mockCreditRecords,
   orders: mockTradeOrders,
+  mediatorRecords: mockMediatorRecords,
   activePost: null,
   activeCircle: null,
+  pendingCircleGameId: null,
 
   setActivePost: (post) => set({ activePost: post }),
   setActiveCircle: (circle) => set({ activeCircle: circle }),
+  setPendingCircleGameId: (gameId) => set({ pendingCircleGameId: gameId }),
 
   addQAComment: (comment) =>
     set((state) => ({
@@ -86,6 +118,35 @@ export const useAppStore = create<AppState>((set, get) => ({
       return { posts: [newPost, ...state.posts] };
     }),
 
+  createTradeOrder: (data) => {
+    const newOrder: TradeOrder = {
+      id: `t${Date.now()}`,
+      postId: data.postId,
+      buyerId: data.buyerId,
+      sellerId: data.sellerId,
+      mediatorId: data.mediatorId,
+      amount: data.amount,
+      status: 'delivering',
+      createdAt: new Date().toISOString(),
+      postTitle: data.postTitle,
+      postCover: data.postCover,
+    };
+
+    set((state) => ({
+      orders: [newOrder, ...state.orders],
+      posts: state.posts.map((p) =>
+        p.id === data.postId ? { ...p, status: 'trading' as const } : p
+      ),
+    }));
+
+    return newOrder;
+  },
+
+  updatePostStatus: (postId, status) =>
+    set((state) => ({
+      posts: state.posts.map((p) => (p.id === postId ? { ...p, status } : p)),
+    })),
+
   getPostQA: (postId) => {
     const state = get();
     return state.qaComments.filter((c) => c.postId === postId);
@@ -104,5 +165,28 @@ export const useAppStore = create<AppState>((set, get) => ({
   getGamePosts: (gameId) => {
     const state = get();
     return state.posts.filter((p) => p.gameId === gameId);
+  },
+
+  getMediatorRecords: (mediatorId) => {
+    const state = get();
+    return state.mediatorRecords.filter((r) => r.mediatorId === mediatorId);
+  },
+
+  getPriceReference: (gameId, rank) => {
+    const state = get();
+    const refs = state.priceReferences.filter((r) => r.gameId === gameId);
+    if (refs.length === 0) return null;
+    const matched = refs.find((r) => rank && rank.includes(r.rank.replace(/[0-9+]/g, '').trim()));
+    if (matched) return matched;
+    let closest = refs[0];
+    let minDist = Infinity;
+    for (const ref of refs) {
+      const dist = Math.abs(ref.avgPrice - refs.reduce((a, b) => a + b.avgPrice, 0) / refs.length);
+      if (dist < minDist) {
+        minDist = dist;
+        closest = ref;
+      }
+    }
+    return closest;
   },
 }));

@@ -67,6 +67,23 @@ export interface Mediator {
   isOnline: boolean;
   responseTime: string;
   introduction: string;
+  avgResponseMinutes: number;
+  disputeResolutionRate: number;
+  completedOrders7Days: number;
+}
+
+export interface MediatorOrderRecord {
+  id: string;
+  mediatorId: string;
+  postTitle: string;
+  amount: number;
+  status: 'completed' | 'disputed' | 'processing';
+  result?: 'buyer_win' | 'seller_win' | 'compromise';
+  buyer: string;
+  seller: string;
+  responseMinutes: number;
+  durationMinutes: number;
+  createdAt: string;
 }
 
 export type OrderStatus = 'pending' | 'paid' | 'delivering' | 'completed' | 'disputed' | 'cancelled';

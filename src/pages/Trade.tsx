@@ -1,4 +1,4 @@
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import {
   ChevronLeft,
@@ -17,24 +17,32 @@ import {
   Info,
   GraduationCap,
   Zap,
+  User,
+  Package,
 } from 'lucide-react';
 import { Container } from '@/components/layout/Container';
 import { UserAvatar } from '@/components/user/UserAvatar';
 import { CreditBadge } from '@/components/user/CreditBadge';
 import { MediatorCard } from '@/components/trade/MediatorCard';
+import { MediatorRecordsModal } from '@/components/trade/MediatorRecordsModal';
 import { PriceRange } from '@/components/trade/PriceRange';
 import { QASection } from '@/components/trade/QASection';
 import { ReviewCard } from '@/components/user/ReviewCard';
 import { PostCard } from '@/components/trade/PostCard';
 import { useAppStore } from '@/store';
 import { formatPrice, formatDate, formatNumber, truncateText } from '@/utils/format';
+import type { Mediator } from '@/types';
 
 export default function Trade() {
+  const navigate = useNavigate();
   const { postId = 'p1' } = useParams();
   const posts = useAppStore((s) => s.posts);
   const mediators = useAppStore((s) => s.mediators);
   const priceRefs = useAppStore((s) => s.priceReferences);
   const reviews = useAppStore((s) => s.reviews);
+  const currentUser = useAppStore((s) => s.currentUser);
+  const createTradeOrder = useAppStore((s) => s.createTradeOrder);
+  const getMediatorRecords = useAppStore((s) => s.getMediatorRecords);
 
   const post = posts.find((p) => p.id === postId) || posts[0];
   const gamePriceRefs = priceRefs.filter((r) => r.gameId === post?.gameId);
@@ -45,10 +53,34 @@ export default function Trade() {
   const [selectedMediator, setSelectedMediator] = useState<string | null>(mediators[0]?.id || null);
   const [isFavorited, setIsFavorited] = useState(false);
   const [showOrderModal, setShowOrderModal] = useState(false);
+  const [showMediatorRecords, setShowMediatorRecords] = useState<Mediator | null>(null);
+  const [orderSuccess, setOrderSuccess] = useState<{ orderId: string } | null>(null);
 
   if (!post) return null;
 
   const similarPosts = posts.filter((p) => p.gameId === post.gameId && p.id !== post.id).slice(0, 3);
+  const selectedMediatorData = mediators.find((m) => m.id === selectedMediator);
+
+  const handleConfirmPay = () => {
+    if (!selectedMediator || !post) return;
+
+    const order = createTradeOrder({
+      postId: post.id,
+      buyerId: currentUser.id,
+      sellerId: post.user.id,
+      mediatorId: selectedMediator,
+      amount: post.price,
+      postTitle: post.title,
+      postCover: post.screenshots[0],
+    });
+
+    setShowOrderModal(false);
+    setOrderSuccess({ orderId: order.id });
+  };
+
+  const handleViewMediatorRecords = (mediator: Mediator) => {
+    setShowMediatorRecords(mediator);
+  };
 
   return (
     <Container>
@@ -80,7 +112,7 @@ export default function Trade() {
               >
                 <ChevronRight size={20} />
               </button>
-              <div className="absolute top-4 left-4 flex gap-2">
+              <div className="absolute top-4 left-4 flex gap-2 flex-wrap">
                 {post.useGuarantee && (
                   <span className="tag-neon bg-neon-cyan/90 text-white backdrop-blur-sm">
                     <Shield size={12} className="mr-1" />
@@ -90,6 +122,16 @@ export default function Trade() {
                 <span className="tag-neon bg-dark-900/80 text-white backdrop-blur-sm">
                   {post.game.name}
                 </span>
+                {post.status === 'trading' && (
+                  <span className="tag-neon bg-neon-orange/90 text-white backdrop-blur-sm">
+                    交易中
+                  </span>
+                )}
+                {post.status === 'sold' && (
+                  <span className="tag-neon bg-gray-500/90 text-white backdrop-blur-sm">
+                    已售出
+                  </span>
+                )}
               </div>
               <div className="absolute top-4 right-4 flex gap-2">
                 <button
@@ -276,13 +318,14 @@ export default function Trade() {
               </div>
               <span className="text-xs text-white/40">在线 {onlineMediators.length} 人</span>
             </div>
-            <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+            <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
               {onlineMediators.map((mediator) => (
                 <MediatorCard
                   key={mediator.id}
                   mediator={mediator}
                   selected={selectedMediator === mediator.id}
                   onClick={() => setSelectedMediator(mediator.id)}
+                  onViewRecords={() => handleViewMediatorRecords(mediator)}
                 />
               ))}
               {offlineMediators.map((mediator) => (
@@ -291,6 +334,7 @@ export default function Trade() {
                   mediator={mediator}
                   selected={selectedMediator === mediator.id}
                   onClick={() => setSelectedMediator(mediator.id)}
+                  onViewRecords={() => handleViewMediatorRecords(mediator)}
                 />
               ))}
             </div>
@@ -311,6 +355,25 @@ export default function Trade() {
               )}
             </div>
 
+            {selectedMediatorData && (
+              <div className="mb-4 p-3 rounded-xl bg-neon-purple/10 border border-neon-purple/20">
+                <p className="text-xs text-white/50 mb-1">已选中中介</p>
+                <div className="flex items-center gap-2">
+                  <img
+                    src={selectedMediatorData.avatar}
+                    alt=""
+                    className="w-8 h-8 rounded-lg object-cover"
+                  />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-white">{selectedMediatorData.nickname}</p>
+                    <p className="text-xs text-white/50">
+                      {selectedMediatorData.responseTime}响应 · 调解率 {selectedMediatorData.disputeResolutionRate}%
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2 mb-5 text-sm text-white/60">
               <div className="flex items-center gap-2">
                 <CheckCircle2 size={14} className="text-green-400" />
@@ -328,11 +391,11 @@ export default function Trade() {
 
             <button
               onClick={() => setShowOrderModal(true)}
-              disabled={!selectedMediator}
+              disabled={!selectedMediator || post.status === 'trading' || post.status === 'sold'}
               className="btn-gradient w-full disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               <Shield size={18} />
-              发起担保交易
+              {post.status === 'trading' ? '交易进行中' : post.status === 'sold' ? '已售出' : '发起担保交易'}
             </button>
             <button className="btn-outline w-full mt-3 flex items-center justify-center gap-2">
               <MessageCircle size={18} />
@@ -374,13 +437,38 @@ export default function Trade() {
 
               <div className="p-4 rounded-xl bg-white/5">
                 <p className="text-xs text-white/50 mb-2">担保中介</p>
-                <p className="text-white font-medium">
-                  {mediators.find((m) => m.id === selectedMediator)?.nickname}
-                </p>
+                <div className="flex items-center gap-3">
+                  <img
+                    src={selectedMediatorData?.avatar}
+                    alt=""
+                    className="w-10 h-10 rounded-lg object-cover"
+                  />
+                  <div>
+                    <p className="text-white font-medium">{selectedMediatorData?.nickname}</p>
+                    <p className="text-xs text-white/50">
+                      近7日 {selectedMediatorData?.completedOrders7Days} 单 · 调解率 {selectedMediatorData?.disputeResolutionRate}%
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 rounded-xl bg-white/5">
+                  <p className="text-xs text-white/50 mb-1 flex items-center gap-1">
+                    <User size={12} /> 买家
+                  </p>
+                  <p className="text-sm text-white truncate">{currentUser.nickname}</p>
+                </div>
+                <div className="p-3 rounded-xl bg-white/5">
+                  <p className="text-xs text-white/50 mb-1 flex items-center gap-1">
+                    <Package size={12} /> 卖家
+                  </p>
+                  <p className="text-sm text-white truncate">{post.user.nickname}</p>
+                </div>
               </div>
 
               <div className="flex justify-between items-center pt-4 border-t border-white/5">
-                <span className="text-white/60">应付金额</span>
+                <span className="text-white/60">应付金额（含中介费）</span>
                 <span className="text-2xl font-bold text-gradient">
                   {formatPrice(post.price + Math.round(post.price * 0.03))}
                 </span>
@@ -395,10 +483,7 @@ export default function Trade() {
                 取消
               </button>
               <button
-                onClick={() => {
-                  setShowOrderModal(false);
-                  alert('下单成功！请等待中介联系您进行账号交接。');
-                }}
+                onClick={handleConfirmPay}
                 className="btn-gradient flex-1"
               >
                 确认支付
@@ -406,6 +491,50 @@ export default function Trade() {
             </div>
           </div>
         </div>
+      )}
+
+      {orderSuccess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dark-900/80 backdrop-blur-sm">
+          <div className="glass-card p-8 w-full max-w-md text-center">
+            <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-green-500/20 flex items-center justify-center">
+              <CheckCircle2 size={48} className="text-green-400" />
+            </div>
+            <h3 className="text-2xl font-bold text-white mb-2">下单成功！</h3>
+            <p className="text-sm text-white/60 mb-6">
+              订单号：{orderSuccess.orderId}
+              <br />
+              中介将在几分钟内联系您进行账号交接，请保持消息畅通。
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setOrderSuccess(null);
+                  navigate('/profile');
+                }}
+                className="btn-outline flex-1"
+              >
+                查看订单
+              </button>
+              <button
+                onClick={() => {
+                  setOrderSuccess(null);
+                  navigate('/');
+                }}
+                className="btn-gradient flex-1"
+              >
+                返回首页
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showMediatorRecords && (
+        <MediatorRecordsModal
+          mediator={showMediatorRecords}
+          records={getMediatorRecords(showMediatorRecords.id)}
+          onClose={() => setShowMediatorRecords(null)}
+        />
       )}
     </Container>
   );
