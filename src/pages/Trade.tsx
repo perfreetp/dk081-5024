@@ -1,4 +1,4 @@
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useEffect } from 'react-router-dom';
 import { useState } from 'react';
 import {
   ChevronLeft,
@@ -77,13 +77,19 @@ export default function Trade() {
   const [showOfferModal, setShowOfferModal] = useState(false);
   const [offerPrice, setOfferPrice] = useState('');
   const [offerMessage, setOfferMessage] = useState('');
-  const [useOfferPrice, setUseOfferPrice] = useState(false);
+  const [useOfferPrice, setUseOfferPrice] = useState(!!acceptedOffer);
 
   if (!post) return null;
 
   const similarPosts = posts.filter((p) => p.gameId === post.gameId && p.id !== post.id).slice(0, 3);
   const selectedMediatorData = mediators.find((m) => m.id === selectedMediator);
   const priceRef = getPriceReference(post.gameId, post.rank);
+
+  useEffect(() => {
+    if (acceptedOffer) {
+      setUseOfferPrice(true);
+    }
+  }, [acceptedOffer]);
 
   const handleConfirmPay = () => {
     if (!selectedMediator || !post) return;
@@ -568,22 +574,55 @@ export default function Trade() {
                   </div>
                 </div>
 
-                <button
-                  onClick={() => setShowOrderModal(true)}
-                  disabled={!selectedMediator || post.status === 'trading' || post.status === 'sold' || post.status === 'closed'}
-                  className="btn-gradient w-full disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  <Shield size={18} />
-                  {post.status === 'trading'
-                    ? '交易进行中'
-                    : post.status === 'sold'
-                    ? '已售出'
-                    : post.status === 'closed'
-                    ? '已下架'
-                    : '发起担保交易'}
-                </button>
+                {acceptedOffer && !useOfferPrice ? (
+                  <button
+                    onClick={() => setUseOfferPrice(true)}
+                    className="btn-gradient w-full flex items-center justify-center gap-2"
+                  >
+                    <Tag size={16} />
+                    按议价 {formatPrice(acceptedOffer.price)} 下单
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setShowOrderModal(true)}
+                    disabled={!selectedMediator || post.status === 'trading' || post.status === 'sold' || post.status === 'closed'}
+                    className="btn-gradient w-full disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    <Shield size={18} />
+                    {post.status === 'trading'
+                      ? '交易进行中'
+                      : post.status === 'sold'
+                      ? '已售出'
+                      : post.status === 'closed'
+                      ? '已下架'
+                      : acceptedOffer
+                      ? `按议价 ${formatPrice(acceptedOffer.price)} 下单`
+                      : '发起担保交易'}
+                  </button>
+                )}
 
-                {post.acceptOffer && !myOffer?.status?.includes('pending') && (
+                {acceptedOffer && useOfferPrice && (
+                  <button
+                    onClick={() => setUseOfferPrice(false)}
+                    className="btn-outline w-full mt-2 flex items-center justify-center gap-2 text-white/60 text-sm"
+                  >
+                    <span className="line-through">原价 {formatPrice(post.price)}</span>
+                    切换为原价购买
+                  </button>
+                )}
+
+                {acceptedOffer && !useOfferPrice && (
+                  <button
+                    onClick={() => setShowOrderModal(true)}
+                    disabled={!selectedMediator || post.status === 'trading' || post.status === 'sold' || post.status === 'closed'}
+                    className="btn-outline w-full mt-2 flex items-center justify-center gap-2 text-white/60 text-sm disabled:opacity-50"
+                  >
+                    <span className="line-through">原价 {formatPrice(post.price)}</span>
+                    继续原价购买
+                  </button>
+                )}
+
+                {!acceptedOffer && post.acceptOffer && !myOffer?.status?.includes('pending') && (
                   <button
                     onClick={() => setShowOfferModal(true)}
                     disabled={post.status !== 'active'}

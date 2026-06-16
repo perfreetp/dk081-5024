@@ -104,6 +104,7 @@ interface AppState {
   getGamePosts: (gameId: string) => Post[];
   getMediatorRecords: (mediatorId: string) => MediatorOrderRecord[];
   getPriceReference: (gameId: string, rank: string) => PriceReference | null;
+  getPriceReferenceStrict: (gameId: string, rank: string) => PriceReference | null;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -200,6 +201,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       ),
     }));
 
+    setTimeout(() => {
+      get().advanceOrderStage(newOrder.id, `${mediator?.nickname || '中介'}已接单，正在联系卖家交接账号`);
+    }, 800);
+
     return newOrder;
   },
 
@@ -227,16 +232,49 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (!order) return state;
 
       const currentIdx = order.stages.findIndex((s) => s.type === order.currentStage);
-      const nextIdx = currentIdx + 1;
-      if (nextIdx >= order.stages.length) return state;
+      if (currentIdx < 0) return state;
 
-      const nextStage = order.stages[nextIdx];
-      const newStages = order.stages.map((s, idx) => {
-        if (idx === currentIdx) return { ...s, completedAt: now, note: note || s.note };
-        return s;
-      });
-      const newCurrentStage = nextStage.type;
-      const newStatus = nextIdx >= order.stages.length - 1 ? 'completed' as const : order.status;
+      let newStages = [...order.stages];
+      let nextIdx = currentIdx + 1;
+      let newCurrentStage = order.currentStage;
+      let finalNote = note;
+
+      newStages[currentIdx] = { ...newStages[currentIdx], completedAt: now, note: finalNote || newStages[currentIdx].note };
+
+      while (nextIdx < newStages.length) {
+        const nextStage = newStages[nextIdx];
+        const prevStage = newStages[nextIdx - 1];
+
+        const shouldAutoAdvance = 
+          (nextStage.type === 'seller_preparing' && prevStage.type === 'mediator_assigned') ||
+          (nextStage.type === 'account_verified' && prevStage.type === 'seller_preparing') ||
+          (nextStage.type === 'fund_released' && prevStage.type === 'buyer_confirmed') ||
+          (nextStage.type === 'completed' && prevStage.type === 'fund_released');
+
+        if (shouldAutoAdvance) {
+          let autoNote = '';
+          if (nextStage.type === 'seller_preparing') {
+            autoNote = '卖家正在准备账号资料';
+          } else if (nextStage.type === 'account_verified') {
+            autoNote = '中介已验证账号信息：账号密码正确，绑定信息与描述一致';
+          } else if (nextStage.type === 'fund_released') {
+            autoNote = '平台已将款项打至卖家账户，请注意查收';
+          } else if (nextStage.type === 'completed') {
+            autoNote = '交易已圆满完成，感谢您的信任';
+          }
+          newStages[nextIdx] = { ...nextStage, completedAt: now, note: autoNote };
+          nextIdx++;
+        } else {
+          newCurrentStage = nextStage.type;
+          break;
+        }
+      }
+
+      if (nextIdx >= newStages.length) {
+        newCurrentStage = 'completed';
+      }
+
+      const newStatus = nextIdx >= newStages.length ? 'completed' as const : order.status;
 
       return {
         orders: state.orders.map((o) =>
@@ -357,6 +395,20 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     if (matched) return matched;
     if (refs.length > 0) return refs[Math.floor(refs.length / 2)];
+    return null;
+  },
+
+  getPriceReferenceStrict: (gameId, rank) => {
+    const state = get();
+    const refs = state.priceReferences.filter((r) => r.gameId === gameId);
+    if (refs.length === 0) return null;
+
+    const rankLower = rank.toLowerCase().trim();
+    for (const ref of refs) {
+      if (ref.rank.toLowerCase().trim() === rankLower) {
+        return ref;
+      }
+    }
     return null;
   },
 }));

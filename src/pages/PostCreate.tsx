@@ -29,7 +29,7 @@ export default function PostCreate() {
   const circles = useAppStore((s) => s.circles);
   const createPost = useAppStore((s) => s.createPost);
   const currentUser = useAppStore((s) => s.currentUser);
-  const getPriceReference = useAppStore((s) => s.getPriceReference);
+  const getPriceReferenceStrict = useAppStore((s) => s.getPriceReferenceStrict);
 
   const urlGameId = searchParams.get('gameId');
   const urlCircleId = searchParams.get('circleId');
@@ -68,7 +68,7 @@ export default function PostCreate() {
     if (!formData.gameId || !formData.rank) {
       return { level: 'empty' as const, tip: '请先选择游戏和段位以获取价格参考', ref: null };
     }
-    const ref = getPriceReference(formData.gameId, formData.rank);
+    const ref = getPriceReferenceStrict(formData.gameId, formData.rank);
     if (!ref) {
       return { level: 'no_data' as const, tip: '暂无该游戏对应段位的价格参考数据，建议参考同类型账号谨慎定价', ref: null };
     }
@@ -90,7 +90,7 @@ export default function PostCreate() {
       tip = '定价处于合理区间，参考同类型账号成交数据。';
     }
     return { level, tip, ref };
-  }, [formData.price, formData.gameId, formData.rank, getPriceReference]);
+  }, [formData.price, formData.gameId, formData.rank, getPriceReferenceStrict]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     setUploadError('');

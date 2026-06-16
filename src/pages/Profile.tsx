@@ -39,7 +39,7 @@ export default function Profile() {
   const rejectOffer = useAppStore((s) => s.rejectOffer);
 
   const [activeTab, setActiveTab] = useState<'published' | 'bought' | 'sold' | 'offers' | 'offers-sent' | 'favorites' | 'reviews' | 'exposure'>('published');
-  const [offerFilter, setOfferFilter] = useState<'all' | 'pending' | 'accepted' | 'rejected'>('all');
+  const [offerFilter, setOfferFilter] = useState<'all' | 'pending' | 'trading' | 'completed' | 'rejected' | 'expired'>('all');
 
   const userPosts = posts.filter((p) => p.userId === currentUser.id);
   const boughtOrders = orders.filter((o) => o.buyerId === currentUser.id);
@@ -48,13 +48,48 @@ export default function Profile() {
   const sentOffers = getUserOffers(currentUser.id, 'buyer');
   const pendingOffers = receivedOffers.filter((o) => o.status === 'pending');
 
-  const getFilteredOffers = (list: typeof receivedOffers) => {
-    if (offerFilter === 'all') return list;
-    return list.filter((o) => o.status === offerFilter);
-  };
-
   const getOfferOrder = (offerId: string) => {
     return orders.find((o) => o.offerId === offerId);
+  };
+
+  const getOfferDisplayStatus = (offer: typeof receivedOffers[0]) => {
+    const relatedOrder = getOfferOrder(offer.id);
+    if (relatedOrder) {
+      if (relatedOrder.status === 'completed') return 'completed';
+      return 'trading';
+    }
+    if (offer.status === 'pending') {
+      const offerTime = new Date(offer.createdAt).getTime();
+      const now = Date.now();
+      if (now - offerTime > 7 * 24 * 60 * 60 * 1000) {
+        return 'expired';
+      }
+    }
+    return offer.status;
+  };
+
+  const offerDisplayStatusConfig = {
+    pending: { label: '待处理', color: 'bg-neon-orange/20 text-neon-orange' },
+    accepted: { label: '已同意', color: 'bg-green-500/20 text-green-400' },
+    rejected: { label: '已拒绝', color: 'bg-red-500/20 text-red-400' },
+    cancelled: { label: '已取消', color: 'bg-white/10 text-white/50' },
+    expired: { label: '已过期', color: 'bg-gray-500/20 text-gray-400' },
+    trading: { label: '交易中', color: 'bg-neon-purple/20 text-neon-purple' },
+    completed: { label: '已成交', color: 'bg-green-500/30 text-green-400' },
+  };
+
+  const offerFilterOptions = [
+    { key: 'all' as const, label: '全部' },
+    { key: 'pending' as const, label: '待处理' },
+    { key: 'trading' as const, label: '交易中' },
+    { key: 'completed' as const, label: '已成交' },
+    { key: 'rejected' as const, label: '已拒绝' },
+    { key: 'expired' as const, label: '已过期' },
+  ];
+
+  const getFilteredOffers = (list: typeof receivedOffers) => {
+    if (offerFilter === 'all') return list;
+    return list.filter((o) => getOfferDisplayStatus(o) === offerFilter);
   };
 
   const creditProgress = getCreditProgress(currentUser.creditScore);
@@ -326,12 +361,7 @@ export default function Profile() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex gap-2 flex-wrap">
-                    {([
-                      { key: 'all', label: '全部' },
-                      { key: 'pending', label: '待处理' },
-                      { key: 'accepted', label: '已同意' },
-                      { key: 'rejected', label: '已拒绝' },
-                    ] as const).map((f) => (
+                    {offerFilterOptions.map((f) => (
                       <button
                         key={f.key}
                         onClick={() => setOfferFilter(f.key)}
@@ -355,6 +385,8 @@ export default function Profile() {
                     const offerPost = posts.find((p) => p.id === offer.postId);
                     const relatedOrder = getOfferOrder(offer.id);
                     const isSellerView = activeTab === 'offers';
+                    const displayStatus = getOfferDisplayStatus(offer);
+                    const statusConfig = offerDisplayStatusConfig[displayStatus];
 
                     return (
                       <div key={offer.id} className="glass-card p-4">
@@ -366,13 +398,13 @@ export default function Profile() {
                           />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-2">
-                              <p className="font-medium text-white">
-                                {isSellerView ? offer.buyer.nickname : offer.seller.nickname}
-                              </p>
-                              <span className={`tag-neon ${offerStatusConfig[offer.status].color} text-xs shrink-0`}>
-                                {offerStatusConfig[offer.status].label}
-                              </span>
-                            </div>
+                            <p className="font-medium text-white">
+                              {isSellerView ? offer.buyer.nickname : offer.seller.nickname}
+                            </p>
+                            <span className={`tag-neon ${statusConfig.color} text-xs shrink-0`}>
+                              {statusConfig.label}
+                            </span>
+                          </div>
                             <p className="text-sm text-white/50 mt-0.5 flex items-center gap-2">
                               <Clock size={12} />
                               {formatDate(offer.createdAt)}
@@ -452,7 +484,7 @@ export default function Profile() {
                           </Link>
                         )}
 
-                        {offer.status === 'pending' && isSellerView && (
+                        {displayStatus === 'pending' && isSellerView && (
                           <div className="flex gap-3">
                             <button
                               onClick={() => acceptOffer(offer.id)}
@@ -471,7 +503,13 @@ export default function Profile() {
                           </div>
                         )}
 
-                        {offer.status === 'accepted' && !isSellerView && !relatedOrder && offerPost && offerPost.status === 'active' && (
+                        {displayStatus === 'expired' && (
+                          <p className="text-xs text-white/40 text-center">
+                            报价已过期（超过7天未处理）
+                          </p>
+                        )}
+
+                        {displayStatus === 'accepted' && !isSellerView && !relatedOrder && offerPost && offerPost.status === 'active' && (
                           <Link
                             to={`/trade/${offer.postId}`}
                             className="btn-gradient w-full text-sm py-2.5 flex items-center justify-center gap-1"
@@ -481,7 +519,7 @@ export default function Profile() {
                           </Link>
                         )}
 
-                        {offer.status !== 'pending' && offer.respondedAt && (
+                        {offer.status !== 'pending' && offer.respondedAt && displayStatus !== 'trading' && displayStatus !== 'completed' && (
                           <p className="text-xs text-white/40 text-center">
                             {offer.status === 'accepted' ? '已同意' : '已拒绝'} · {formatDate(offer.respondedAt)}
                           </p>

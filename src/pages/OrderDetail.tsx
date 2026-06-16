@@ -88,6 +88,8 @@ export default function OrderDetail() {
   const post = posts.find((p) => p.id === order.postId);
   const isBuyer = currentUser.id === order.buyerId;
   const isSeller = currentUser.id === order.sellerId;
+  const serviceFee = Math.round(order.amount * 0.03);
+  const totalAmount = order.amount + serviceFee;
 
   const currentStageIndex = order.stages.findIndex((s) => s.type === order.currentStage);
 
@@ -112,6 +114,7 @@ export default function OrderDetail() {
 
   const canSellerSubmit = isSeller && order.status === 'delivering' && order.currentStage === 'mediator_assigned';
   const canBuyerConfirm = isBuyer && order.status === 'delivering' && order.currentStage === 'account_verified';
+  const isAutoProcessing = order.currentStage === 'order_created' || order.currentStage === 'seller_preparing' || order.currentStage === 'buyer_confirmed';
 
   return (
     <Container>
@@ -128,8 +131,8 @@ export default function OrderDetail() {
               <h1 className="text-2xl font-bold text-gradient">{statusText[order.status]}</h1>
             </div>
             <div className="text-right">
-              <p className="text-sm text-white/50 mb-1">订单金额</p>
-              <p className="text-2xl font-bold text-white">{formatPrice(order.amount)}</p>
+              <p className="text-sm text-white/50 mb-1">实付金额</p>
+              <p className="text-2xl font-bold text-white">{formatPrice(totalAmount)}</p>
             </div>
           </div>
 
@@ -329,19 +332,24 @@ export default function OrderDetail() {
         <div className="glass-card p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-white">费用明细</h3>
+            {order.offerId && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-neon-orange/20 text-neon-orange">
+                议价成交
+              </span>
+            )}
           </div>
           <div className="space-y-3">
             <div className="flex justify-between text-sm">
               <span className="text-white/60">商品价格</span>
-              <span className="text-white">{formatPrice(Math.round(order.amount / 1.03))}</span>
+              <span className="text-white">{formatPrice(order.amount)}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-white/60">中介服务费（约3%）</span>
-              <span className="text-white">{formatPrice(order.amount - Math.round(order.amount / 1.03))}</span>
+              <span className="text-white">{formatPrice(serviceFee)}</span>
             </div>
             <div className="flex justify-between pt-3 border-t border-white/5">
               <span className="text-white font-medium">实付金额</span>
-              <span className="text-lg font-bold text-gradient">{formatPrice(order.amount)}</span>
+              <span className="text-lg font-bold text-gradient">{formatPrice(totalAmount)}</span>
             </div>
           </div>
         </div>
@@ -356,25 +364,25 @@ export default function OrderDetail() {
             {order.currentStage === 'order_created' && (
               <div className="p-3 rounded-xl bg-white/5 mb-4">
                 <p className="text-sm text-white/60">
-                  订单已创建，等待中介接单介入...
+                  🕒 订单已创建，正在分配中介介入，请稍候...
                 </p>
               </div>
             )}
-            {order.currentStage === 'mediator_assigned' && isSeller && (
+            {canSellerSubmit && (
               <div className="p-3 rounded-xl bg-neon-orange/10 border border-neon-orange/20 mb-4">
                 <p className="text-sm text-white/80">
                   📦 中介已介入，请尽快准备账号资料并提交给中介
                 </p>
               </div>
             )}
-            {order.currentStage === 'seller_preparing' && isBuyer && (
+            {order.currentStage === 'seller_preparing' && (
               <div className="p-3 rounded-xl bg-neon-cyan/10 border border-neon-cyan/20 mb-4">
                 <p className="text-sm text-white/80">
-                  ⏳ 卖家正在交接账号，中介验证完成后会通知您
+                  ⏳ 卖家已提交账号，中介正在验证中，请稍候...
                 </p>
               </div>
             )}
-            {order.currentStage === 'account_verified' && isBuyer && (
+            {canBuyerConfirm && (
               <div className="p-3 rounded-xl bg-neon-purple/10 border border-neon-purple/20 mb-4">
                 <p className="text-sm text-white/80">
                   ✅ 中介已验证账号信息，请确认收货后完成交易
@@ -384,7 +392,7 @@ export default function OrderDetail() {
             {order.currentStage === 'buyer_confirmed' && (
               <div className="p-3 rounded-xl bg-green-500/10 border border-green-500/20 mb-4">
                 <p className="text-sm text-white/80">
-                  💰 买家已确认收货，平台正在处理放款...
+                  💰 买家已确认收货，平台正在处理放款，请稍候...
                 </p>
               </div>
             )}
@@ -415,6 +423,12 @@ export default function OrderDetail() {
                 </button>
               )}
             </div>
+
+            {isAutoProcessing && (
+              <p className="text-xs text-white/40 text-center mt-3">
+                🤖 系统自动处理中，通常需要几秒钟...
+              </p>
+            )}
           </div>
         )}
 
